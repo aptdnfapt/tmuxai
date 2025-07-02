@@ -112,6 +112,10 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		Timestamp: time.Now(),
 	}
 
+	if r.CreateExecPane {
+		m.CreateNewExecPane()
+	}
+
 	// did AI follow our guidelines?
 	guidelineError, validResponse := m.aiFollowedGuidelines(r)
 	if !validResponse {
@@ -134,22 +138,45 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 	// observe/prepared mode
 	for _, execCommand := range r.ExecCommand {
-		code, _ := system.HighlightCode("sh", execCommand)
+		code, _ := system.HighlightCode("sh", execCommand.Command)
 		m.Println(code)
 
 		isSafe := false
-		command := execCommand
+		command := execCommand.Command
 		if m.GetExecConfirm() {
-			isSafe, command = m.confirmedToExec(execCommand, "Execute this command?", true)
+			isSafe, command = m.confirmedToExec(execCommand.Command, "Execute this command?", true)
 		} else {
 			isSafe = true
 		}
 		if isSafe {
 			m.Println("Executing command: " + command)
-			if m.ExecPane.IsPrepared {
-				m.ExecWaitCapture(command)
+
+			var targetPane *system.TmuxPaneDetails
+			if execCommand.PaneID != "" {
+				// Find the pane details for this ID.
+				panes, _ := m.GetTmuxPanes()
+				found := false
+				for i, p := range panes {
+					if p.Id == execCommand.PaneID {
+						targetPane = &panes[i]
+						found = true
+						break
+					}
+				}
+				if !found {
+					m.Println(fmt.Sprintf("Error: Could not find target pane with ID %s", execCommand.PaneID))
+					continue
+				}
 			} else {
-				system.TmuxSendCommandToPane(m.ExecPane.Id, command, true)
+				// Default to the primary exec pane
+				targetPane = m.ExecPane
+			}
+
+			targetPane.Refresh(m.GetMaxCaptureLines())
+			if targetPane.IsPrepared {
+				m.ExecWaitCapture(command, targetPane)
+			} else {
+				system.TmuxSendCommandToPane(targetPane.Id, command, true)
 				time.Sleep(1 * time.Second)
 			}
 		} else {
@@ -280,41 +307,54 @@ func (m *Manager) startWatchMode(desc string) {
 }
 
 func (m *Manager) aiFollowedGuidelines(r AIResponse) (string, bool) {
-	// Check if only one boolean is true in AI response
-	boolCount := 0
+	// Count state tags. Rule: Max 1 state tag.
+	stateTags := 0
 	if r.RequestAccomplished {
-		boolCount++
+		stateTags++
 	}
 	if r.ExecPaneSeemsBusy {
-		boolCount++
+		stateTags++
 	}
 	if r.WaitingForUserResponse {
-		boolCount++
+		stateTags++
 	}
 	if r.NoComment {
-		boolCount++
+		stateTags++
 	}
 
-	if boolCount > 1 {
-		return "You didn't follow the guidelines. Only one boolean flag should be set to true in your response. Pay attention!", false
+	if stateTags > 1 {
+		return "AI Error: Only one of <RequestAccomplished>, <ExecPaneSeemsBusy>, <WaitingForUserResponse>, or <NoComment> can be used at a time.", false
 	}
 
-	// Check if only one tag is used
-	tags := []int{len(r.ExecCommand), len(r.SendKeys), len(r.PasteMultilineContent)}
-	count := 0
-	for _, len := range tags {
-		if len > 0 {
-			count++
-		}
+	// Count action tags. Rule: Max 1 main action, can be combined with CreateExecPane.
+	mainActionTags := 0
+	if len(r.ExecCommand) > 0 {
+		mainActionTags++
+	}
+	if len(r.SendKeys) > 0 {
+		mainActionTags++
+	}
+	if r.PasteMultilineContent != "" {
+		mainActionTags++
 	}
 
-	if count > 1 {
-		return "You didn't follow the guidelines. You can only use one type of XML tag in your response. Pay attention!", false
+	if mainActionTags > 1 {
+		return "AI Error: Only one of <ExecCommand>, <TmuxSendKeys>, or <PasteMultilineContent> can be used at a time.", false
 	}
 
-	// watch mode has no xml tags, otherwise should be at least 1 xml tag in response
-	if !m.WatchMode && count+boolCount == 0 {
-		return "You didn't follow the guidelines. You must use at least one XML tag in your response. Pay attention!", false
+	// Rule: State tags cannot be mixed with any action tags (including CreateExecPane).
+	totalActionTags := mainActionTags
+	if r.CreateExecPane {
+		totalActionTags++
+	}
+
+	if stateTags > 0 && totalActionTags > 0 {
+		return "AI Error: State tags (like <RequestAccomplished>) cannot be combined with action tags (like <ExecCommand> or <CreateExecPane>).", false
+	}
+
+	// Rule: A response must contain at least one tag.
+	if stateTags == 0 && totalActionTags == 0 {
+		return "AI Error: The response must contain at least one valid XML tag.", false
 	}
 
 	return "", true

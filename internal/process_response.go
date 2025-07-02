@@ -17,20 +17,40 @@ func (m *Manager) parseAIResponse(response string) (AIResponse, error) {
 	}
 	tags := []tagInfo{
 		{"TmuxSendKeys", true, false, func(r *AIResponse, v string) { r.SendKeys = append(r.SendKeys, v) }},
-		{"ExecCommand", true, false, func(r *AIResponse, v string) { r.ExecCommand = append(r.ExecCommand, v) }},
+		// ExecCommand is handled separately below
 		{"PasteMultilineContent", false, false, func(r *AIResponse, v string) { r.PasteMultilineContent = v }},
 		{"RequestAccomplished", false, true, func(r *AIResponse, v string) { r.RequestAccomplished = isTrue(v) }},
 		{"ExecPaneSeemsBusy", false, true, func(r *AIResponse, v string) { r.ExecPaneSeemsBusy = isTrue(v) }},
 		{"WaitingForUserResponse", false, true, func(r *AIResponse, v string) { r.WaitingForUserResponse = isTrue(v) }},
 		{"NoComment", false, true, func(r *AIResponse, v string) { r.NoComment = isTrue(v) }},
+		{"CreateExecPane", false, true, func(r *AIResponse, v string) { r.CreateExecPane = isTrue(v) }},
 	}
 
 	clean := response
-	tagPattern := `(?s)<%s>(.*?)</%s>`
 	r := AIResponse{}
 	cleanForMsg := clean
+
+	// Handle ExecCommand separately to capture the pane_id attribute
+	reExec := regexp.MustCompile(`(?s)<ExecCommand(?: pane_id="([^"]*)")?>(.*?)</ExecCommand>`)
+	execMatches := reExec.FindAllStringSubmatch(clean, -1)
+	for _, match := range execMatches {
+		if len(match) >= 3 {
+			paneID := match[1] // match[1] is the pane_id attribute value
+			command := html.UnescapeString(strings.TrimSpace(match[2])) // match[2] is the tag content
+			r.ExecCommand = append(r.ExecCommand, ExecCommandInfo{Command: command, PaneID: paneID})
+		}
+	}
+	// Clean ExecCommand tags for the final message
+	// This regex needs to handle the optional pane_id attribute
+	cleanForMsg = regexp.MustCompile(`(?s)<ExecCommand(?: pane_id="[^"]*")?>(.*?)</ExecCommand>`).ReplaceAllString(cleanForMsg, "")
+	// Also remove code block wrappers around ExecCommand tags
+	cleanForMsg = regexp.MustCompile(fmt.Sprintf("(?s)```(?:xml)?\\s*<ExecCommand(?: pane_id=\"[^\"]*\")?>.*?</ExecCommand>\\s*```")).ReplaceAllString(cleanForMsg, "")
+	// Remove single backtick-wrapped tags: `<Tag>...</Tag>`
+	cleanForMsg = regexp.MustCompile(fmt.Sprintf("`<ExecCommand(?: pane_id=\"[^\"]*\")?>.*?</ExecCommand>`")).ReplaceAllString(cleanForMsg, "")
+
+
 	for _, t := range tags {
-		reTag := regexp.MustCompile(fmt.Sprintf(tagPattern, t.name, t.name))
+		reTag := regexp.MustCompile(fmt.Sprintf(`(?s)<%s>(.*?)</%s>`, t.name, t.name))
 		tagMatches := reTag.FindAllStringSubmatch(clean, -1)
 		for _, m := range tagMatches {
 			// m[0] is the full match, m[1] is the value
@@ -55,19 +75,6 @@ func (m *Manager) parseAIResponse(response string) (AIResponse, error) {
 		cleanForMsg = regexp.MustCompile(fmt.Sprintf("`<%s>.*?</%s>`", t.name, t.name)).ReplaceAllString(cleanForMsg, "")
 		// Remove plain tag: <Tag>...</Tag>
 		cleanForMsg = reTag.ReplaceAllString(cleanForMsg, "")
-	}
-
-	// Special handling: tags that may appear as <TagName> or ```<TagName>``` (no value)
-	// Set bool fields to true if such tag is present, even if no value
-	for _, t := range tags {
-		if !t.isBool {
-			continue
-		}
-		// Match <TagName> or ```<TagName>```
-		pat := fmt.Sprintf("(?s)(<%s>\\s*</%s>|<%s>\\s*|```<%s>```|<%s/>)", t.name, t.name, t.name, t.name, t.name)
-		if regexp.MustCompile(pat).MatchString(clean) {
-			t.setField(&r, "1")
-		}
 	}
 
 	// Message: trim, collapse multiple newlines
