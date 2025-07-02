@@ -179,6 +179,10 @@ blacklist_patterns:
 #   base_system: |
 #     xxx
 
+#   # Agentic prompt
+#   agentic: |
+#     xxx
+
 #   # Chat assistant prompt
 #   chat_assistant: |
 #     xxx

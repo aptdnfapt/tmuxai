@@ -42,31 +42,55 @@ DO NOT WRITE MORE TEXT AFTER THE TOOL CALLS IN A RESPONSE. You can wait until th
 
 }
 
+func (m *Manager) agenticPrompt() ChatMessage {
+	var builder strings.Builder
+	builder.WriteString(m.baseSystemPrompt())
+	builder.WriteString(`
+Your primary function is to assist users by interpreting their requests and executing appropriate actions across multiple panes.
+You have access to the following XML tags to control the tmux panes:
+
+<ExecCommand pane_id="%1">: Use this to execute shell commands in a specific tmux pane. If pane_id is omitted, the command runs in the primary exec pane.
+<TmuxSendKeys pane_id="%1">: Use this to send keystrokes to a specific tmux pane.
+<PasteMultilineContent pane_id="%1">: Use this to paste multiline content into a specific tmux pane.
+<CreateExecPane>: Use this boolean tag (value 1) to create a new horizontal split pane for execution. The new pane will become the primary exec pane.
+<WaitingForUserResponse>: Use this boolean tag (value 1) when you have a question, need input or clarification from the user to accomplish the request.
+<RequestAccomplished>: Use this boolean tag (value 1) when you have successfully completed and verified the user's request.
+<ExecPaneSeemsBusy>: Use this boolean tag (value 1) when you need to wait for a command to finish before proceeding.
+`)
+
+	builder.WriteString(`
+==== Rules which are critical priority ====
+
+- You can only use ONE TYPE of action tag in your response (<ExecCommand>, <TmuxSendKeys>, or <PasteMultilineContent>).
+- The <CreateExecPane> tag can be used by itself or combined with a single action tag. It cannot be used with state tags.
+- The "state" tags (<RequestAccomplished>, <WaitingForUserResponse>, <ExecPaneSeemsBusy>, <NoComment>) are mutually exclusive. You must only use one of them, and they cannot be combined with any action tags or with <CreateExecPane>.
+- CRITICAL: You MUST ALWAYS include at least one XML tag in your response. If you are apologizing, confused, or asking a question, you MUST end your response with <WaitingForUserResponse>1</WaitingForUserResponse>. There are no exceptions.
+
+==== End of critical priority rules. ====
+`)
+
+	// Custom additional prompt
+	if m.Config.Prompts.Agentic != "" {
+		builder.WriteString(m.Config.Prompts.Agentic)
+	}
+
+	return ChatMessage{
+		Content:   builder.String(),
+		Timestamp: time.Now(),
+		FromUser:  false,
+	}
+}
+
 func (m *Manager) chatAssistantPrompt(prepared bool) ChatMessage {
 	var builder strings.Builder
 	builder.WriteString(m.baseSystemPrompt())
 	builder.WriteString(`
 Your primary function is to assist users by interpreting their requests and executing appropriate actions.
 You have access to the following XML tags to control the tmux pane:
-`)
 
-	// Conditionally add agentic mode tools
-	if m.GetAgenticMode() {
-		builder.WriteString(`
-<ExecCommand pane_id="%1">: Use this to execute shell commands in a specific tmux pane. If pane_id is omitted, the command runs in the primary exec pane.
-<TmuxSendKeys pane_id="%1">: Use this to send keystrokes to a specific tmux pane.
-<PasteMultilineContent pane_id="%1">: Use this to paste multiline content into a specific tmux pane.
-<CreateExecPane>: Use this boolean tag (value 1) to create a new horizontal split pane for execution. The new pane will become the primary exec pane.
-`)
-	} else {
-		builder.WriteString(`
 <ExecCommand>: Use this to execute shell commands in the exec pane.
 <TmuxSendKeys>: Use this to send keystrokes to the tmux pane.
 <PasteMultilineContent>: Use this to send multiline content into the tmux pane.
-`)
-	}
-
-	builder.WriteString(`
 <WaitingForUserResponse>: Use this boolean tag (value 1) when you have a question, need input or clarification from the user to accomplish the request.
 <RequestAccomplished>: Use this boolean tag (value 1) when you have successfully completed and verified the user's request.
 `)
@@ -99,13 +123,7 @@ When generating your response pay attention to this checks:
 - You can only use ONE TYPE of action tag in your response (<ExecCommand>, <TmuxSendKeys>, or <PasteMultilineContent>).
 - The "state" tags (<RequestAccomplished>, <WaitingForUserResponse>, <ExecPaneSeemsBusy>, <NoComment>) are mutually exclusive. You must only use one of them, and they cannot be combined with any action tags.
 - CRITICAL: You MUST ALWAYS include at least one XML tag in your response. If you are apologizing, confused, or asking a question, you MUST end your response with <WaitingForUserResponse>1</WaitingForUserResponse>. There are no exceptions.
-`)
-	if m.GetAgenticMode() {
-		builder.WriteString(`- The <CreateExecPane> tag can be used by itself or combined with a single action tag. It cannot be used with state tags.
-`)
-	}
 
-	builder.WriteString(`
 ==== End of critical priority rules. ====
 
 Learn from examples:

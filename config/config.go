@@ -36,6 +36,7 @@ type OpenRouterConfig struct {
 // PromptsConfig holds customizable prompt templates
 type PromptsConfig struct {
 	BaseSystem            string `mapstructure:"base_system"`
+	Agentic               string `mapstructure:"agentic"`
 	ChatAssistant         string `mapstructure:"chat_assistant"`
 	ChatAssistantPrepared string `mapstructure:"chat_assistant_prepared"`
 	Watch                 string `mapstructure:"watch"`

@@ -44,6 +44,8 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 	switch {
 	case m.WatchMode:
 		history = []ChatMessage{m.watchPrompt()}
+	case m.GetAgenticMode():
+		history = []ChatMessage{m.agenticPrompt()}
 	case m.ExecPane.IsPrepared:
 		history = []ChatMessage{m.chatAssistantPrompt(true)}
 	default:
