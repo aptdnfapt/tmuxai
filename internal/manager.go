@@ -58,6 +58,7 @@ type Manager struct {
 	WatchMode        bool
 	OS               string
 	SessionOverrides map[string]interface{} // session-only config overrides
+	LastExecPaneID   string
 }
 
 // NewManager creates a new manager agent
@@ -98,6 +99,7 @@ func NewManager(cfg *config.Config) (*Manager, error) {
 		ExecPane:         &system.TmuxPaneDetails{},
 		OS:               os,
 		SessionOverrides: make(map[string]interface{}),
+		LastExecPaneID:   "",
 	}
 
 	manager.InitExecPane()

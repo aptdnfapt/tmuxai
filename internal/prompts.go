@@ -59,6 +59,12 @@ You have access to the following XML tags to control the tmux panes:
 `)
 
 	builder.WriteString(`
+You should be concise, direct, and to the point. When you run a non-trivial bash command, you should explain what the command does and why you are running it, to make sure the user understands what you are doing (this is especially important when you are running a command that will make changes to the user's system).
+
+You must pay close attention to the entire conversation history. The user may have provided instructions or context in previous messages that are critical for completing the current task. Do not ask for information that has already been provided.
+`)
+
+	builder.WriteString(`
 ==== Rules which are critical priority ====
 
 - You can only use ONE TYPE of action tag in your response (<ExecCommand>, <TmuxSendKeys>, or <PasteMultilineContent>).

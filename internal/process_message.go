@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/alvinunreal/tmuxai/logger"
@@ -140,39 +141,53 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 	// observe/prepared mode
 	for _, execCommand := range r.ExecCommand {
+		var targetPane *system.TmuxPaneDetails
+		if execCommand.PaneID != "" {
+			// Find the pane details for this ID.
+			panes, _ := m.GetTmuxPanes()
+			found := false
+
+			// Normalize the pane ID from the AI, which might be missing the '%' prefix.
+			normalizedPaneID := execCommand.PaneID
+			if !strings.HasPrefix(normalizedPaneID, "%") {
+				normalizedPaneID = "%" + normalizedPaneID
+			}
+
+			for i, p := range panes {
+				if p.Id == normalizedPaneID { // Compare against the normalized ID
+					targetPane = &panes[i]
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Use the original PaneID in the error message for clarity.
+				m.Println(fmt.Sprintf("Error: Could not find target pane with ID %s", execCommand.PaneID))
+				continue
+			}
+		} else {
+			// Default to the primary exec pane
+			targetPane = m.ExecPane
+		}
+
 		code, _ := system.HighlightCode("sh", execCommand.Command)
 		m.Println(code)
 
 		isSafe := false
 		command := execCommand.Command
+		confirmPrompt := "Execute this command?"
+		if m.GetAgenticMode() {
+			confirmPrompt = fmt.Sprintf("Execute this command in pane %s?", targetPane.Id)
+		}
+
 		if m.GetExecConfirm() {
-			isSafe, command = m.confirmedToExec(execCommand.Command, "Execute this command?", true)
+			isSafe, command = m.confirmedToExec(execCommand.Command, confirmPrompt, true)
 		} else {
 			isSafe = true
 		}
 		if isSafe {
-			m.Println("Executing command: " + command)
-
-			var targetPane *system.TmuxPaneDetails
-			if execCommand.PaneID != "" {
-				// Find the pane details for this ID.
-				panes, _ := m.GetTmuxPanes()
-				found := false
-				for i, p := range panes {
-					if p.Id == execCommand.PaneID {
-						targetPane = &panes[i]
-						found = true
-						break
-					}
-				}
-				if !found {
-					m.Println(fmt.Sprintf("Error: Could not find target pane with ID %s", execCommand.PaneID))
-					continue
-				}
-			} else {
-				// Default to the primary exec pane
-				targetPane = m.ExecPane
-			}
+			m.Println(fmt.Sprintf("Executing in pane %s: %s", targetPane.Id, command))
+			m.LastExecPaneID = targetPane.Id
 
 			targetPane.Refresh(m.GetMaxCaptureLines())
 			if targetPane.IsPrepared {
@@ -206,6 +221,13 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		// Confirm and execute for each pane
 		for _, paneID := range paneOrder {
 			keys := keysByPane[paneID]
+
+			// Normalize the pane ID from the AI before using it.
+			normalizedPaneID := paneID
+			if !strings.HasPrefix(normalizedPaneID, "%") {
+				normalizedPaneID = "%" + normalizedPaneID
+			}
+
 			keysPreview := fmt.Sprintf("Keys to send to pane %s:\n", paneID)
 			for i, key := range keys {
 				code, _ := system.HighlightCode("txt", key)
@@ -234,7 +256,7 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 			// Send each key with delay
 			for _, sendKey := range keys {
 				m.Println(fmt.Sprintf("Sending to %s: %s", paneID, sendKey))
-				system.TmuxSendCommandToPane(paneID, sendKey, false)
+				system.TmuxSendCommandToPane(normalizedPaneID, sendKey, false)
 				time.Sleep(1 * time.Second)
 			}
 		}
@@ -258,6 +280,13 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 			if targetPaneID == "" {
 				targetPaneID = m.ExecPane.Id // Default to primary exec pane
 			}
+
+			// Normalize the pane ID from the AI before using it.
+			normalizedPaneID := targetPaneID
+			if !strings.HasPrefix(normalizedPaneID, "%") {
+				normalizedPaneID = "%" + normalizedPaneID
+			}
+
 			code, _ := system.HighlightCode("txt", pc.Content)
 			m.Println(fmt.Sprintf("Content to paste into pane %s:", targetPaneID))
 			fmt.Println(code)
@@ -271,8 +300,7 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 			if isSafe {
 				m.Println("Pasting...")
-				system.TmuxSendCommandToPane(targetPaneID, pc.Content, true)
-				time.Sleep(1 * time.Second)
+				system.TmuxPasteToPane(normalizedPaneID, pc.Content)
 			} else {
 				m.Status = ""
 				return false

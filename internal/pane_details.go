@@ -47,13 +47,19 @@ func (m *Manager) GetTmuxPanesInXml(config *config.Config) string {
 		}
 
 		var title string
-		if pane.IsTmuxAiExecPane {
+		switch {
+		case pane.IsTmuxAiExecPane:
 			title = "tmuxai_exec_pane"
-		} else {
+		default:
 			title = "read_only_pane"
 		}
 
-		currentTmuxWindow.WriteString(fmt.Sprintf("<%s>\n", title))
+		openingTag := fmt.Sprintf("<%s", title)
+		if m.GetAgenticMode() && m.LastExecPaneID != "" && m.LastExecPaneID == pane.Id {
+			openingTag += " last_command_sent=\"true\""
+		}
+		openingTag += ">"
+		currentTmuxWindow.WriteString(openingTag + "\n")
 		currentTmuxWindow.WriteString(fmt.Sprintf(" - Id: %s\n", pane.Id))
 		currentTmuxWindow.WriteString(fmt.Sprintf(" - CurrentPid: %d\n", pane.CurrentPid))
 		currentTmuxWindow.WriteString(fmt.Sprintf(" - CurrentCommand: %s\n", pane.CurrentCommand))
