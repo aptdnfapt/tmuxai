@@ -13,6 +13,7 @@ import (
 // Config holds the application configuration
 type Config struct {
 	Debug                 bool             `mapstructure:"debug"`
+	AgenticMode           bool             `mapstructure:"agentic_mode"`
 	MaxCaptureLines       int              `mapstructure:"max_capture_lines"`
 	MaxContextSize        int              `mapstructure:"max_context_size"`
 	WaitInterval          int              `mapstructure:"wait_interval"`
@@ -44,6 +45,7 @@ type PromptsConfig struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Debug:                 false,
+		AgenticMode:           false,
 		MaxCaptureLines:       200,
 		MaxContextSize:        20000,
 		WaitInterval:          5,

@@ -48,11 +48,25 @@ func (m *Manager) chatAssistantPrompt(prepared bool) ChatMessage {
 	builder.WriteString(`
 Your primary function is to assist users by interpreting their requests and executing appropriate actions.
 You have access to the following XML tags to control the tmux pane:
+`)
 
-<TmuxSendKeys>: Use this to send keystrokes to the tmux pane. Supported keys include standard characters, function keys (F1-F12), navigation keys (Up,Down,Left,Right,BSpace,BTab,DC,End,Enter,Escape,Home,IC,NPage,PageDown,PgDn,PPage,PageUp,PgUp,Space,Tab), and modifier keys (C-, M-).
+	// Conditionally add agentic mode tools
+	if m.GetAgenticMode() {
+		builder.WriteString(`
 <ExecCommand pane_id="%1">: Use this to execute shell commands in a specific tmux pane. If pane_id is omitted, the command runs in the primary exec pane.
-<PasteMultilineContent>: Use this to send multiline content into the tmux pane. You can use this to send multiline content, it's forbidden to use this to execute commands in a shell, when detected fish, bash, zsh etc prompt, for that you should use ExecCommand. Main use for this is when it's vim open and you need to type multiline text, etc.
+<TmuxSendKeys pane_id="%1">: Use this to send keystrokes to a specific tmux pane.
+<PasteMultilineContent pane_id="%1">: Use this to paste multiline content into a specific tmux pane.
 <CreateExecPane>: Use this boolean tag (value 1) to create a new horizontal split pane for execution. The new pane will become the primary exec pane.
+`)
+	} else {
+		builder.WriteString(`
+<ExecCommand>: Use this to execute shell commands in the exec pane.
+<TmuxSendKeys>: Use this to send keystrokes to the tmux pane.
+<PasteMultilineContent>: Use this to send multiline content into the tmux pane.
+`)
+	}
+
+	builder.WriteString(`
 <WaitingForUserResponse>: Use this boolean tag (value 1) when you have a question, need input or clarification from the user to accomplish the request.
 <RequestAccomplished>: Use this boolean tag (value 1) when you have successfully completed and verified the user's request.
 `)
@@ -70,7 +84,7 @@ When responding to user messages:
 - is the pane busy running a command or is it idle
 - should you wait or you should proceed
 
-3. Based on your analysis, choose the most appropriate action required and call it at the end of your response with appropriate tool. Always should be at least 1 XML tag.
+3. Based on your analysis, choose the most appropriate action required and call it at the end of your response with appropriate tool.
 4. Respond with user message with normal text and place function calls at the end of your response.
 
 Avoid creating a script files to achieve a task, if the same task can be achieve just by calling one or multiple ExecCommand.
@@ -83,10 +97,15 @@ When generating your response pay attention to this checks:
 ==== Rules which are critical priority ====
 
 - You can only use ONE TYPE of action tag in your response (<ExecCommand>, <TmuxSendKeys>, or <PasteMultilineContent>).
-- The <CreateExecPane> tag can be used by itself or combined with a single action tag.
-- The "state" tags (<RequestAccomplished>, <WaitingForUserResponse>, <ExecPaneSeemsBusy>, <NoComment>) are mutually exclusive. You must only use one of them, and they cannot be combined with any action tags or with <CreateExecPane>.
-- Always include at least one XML tag in your response.
+- The "state" tags (<RequestAccomplished>, <WaitingForUserResponse>, <ExecPaneSeemsBusy>, <NoComment>) are mutually exclusive. You must only use one of them, and they cannot be combined with any action tags.
+- CRITICAL: You MUST ALWAYS include at least one XML tag in your response. If you are apologizing, confused, or asking a question, you MUST end your response with <WaitingForUserResponse>1</WaitingForUserResponse>. There are no exceptions.
+`)
+	if m.GetAgenticMode() {
+		builder.WriteString(`- The <CreateExecPane> tag can be used by itself or combined with a single action tag. It cannot be used with state tags.
+`)
+	}
 
+	builder.WriteString(`
 ==== End of critical priority rules. ====
 
 Learn from examples:

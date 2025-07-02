@@ -187,40 +187,54 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 	// Process SendKeys
 	if len(r.SendKeys) > 0 {
-		// Show preview of all keys
-		keysPreview := "Keys to send:\n"
-		for i, sendKey := range r.SendKeys {
-			code, _ := system.HighlightCode("txt", sendKey)
-			if i == len(r.SendKeys)-1 {
-				keysPreview += code
-			} else {
-				keysPreview += code + "\n"
+		// Group keys by pane for confirmation
+		keysByPane := make(map[string][]string)
+		paneOrder := []string{} // Preserve order
+		for _, sk := range r.SendKeys {
+			paneID := sk.PaneID
+			if paneID == "" {
+				paneID = m.ExecPane.Id // Default to primary exec pane
 			}
-		}
-
-		m.Println(keysPreview)
-
-		// Determine confirmation message based on number of keys
-		confirmMessage := "Send this key?"
-		if len(r.SendKeys) > 1 {
-			confirmMessage = "Send all these keys?"
-		}
-
-		// Get confirmation if required
-		allConfirmed := true
-		if m.GetSendKeysConfirm() {
-			allConfirmed, _ = m.confirmedToExec("keys shown above", confirmMessage, true)
-			if !allConfirmed {
-				m.Status = ""
-				return false
+			if _, exists := keysByPane[paneID]; !exists {
+				paneOrder = append(paneOrder, paneID)
 			}
+			keysByPane[paneID] = append(keysByPane[paneID], sk.Keys)
 		}
 
-		// Send each key with delay
-		for _, sendKey := range r.SendKeys {
-			m.Println("Sending keys: " + sendKey)
-			system.TmuxSendCommandToPane(m.ExecPane.Id, sendKey, false)
-			time.Sleep(1 * time.Second)
+		// Confirm and execute for each pane
+		for _, paneID := range paneOrder {
+			keys := keysByPane[paneID]
+			keysPreview := fmt.Sprintf("Keys to send to pane %s:\n", paneID)
+			for i, key := range keys {
+				code, _ := system.HighlightCode("txt", key)
+				if i == len(keys)-1 {
+					keysPreview += code
+				} else {
+					keysPreview += code + "\n"
+				}
+			}
+			m.Println(keysPreview)
+
+			confirmMessage := fmt.Sprintf("Send these keys to pane %s?", paneID)
+			if len(keys) == 1 {
+				confirmMessage = fmt.Sprintf("Send this key to pane %s?", paneID)
+			}
+
+			allConfirmed := true
+			if m.GetSendKeysConfirm() {
+				allConfirmed, _ = m.confirmedToExec("keys shown above", confirmMessage, false) // No edit for keys
+				if !allConfirmed {
+					m.Status = ""
+					return false // Abort all further actions
+				}
+			}
+
+			// Send each key with delay
+			for _, sendKey := range keys {
+				m.Println(fmt.Sprintf("Sending to %s: %s", paneID, sendKey))
+				system.TmuxSendCommandToPane(paneID, sendKey, false)
+				time.Sleep(1 * time.Second)
+			}
 		}
 	}
 
@@ -235,25 +249,32 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		}
 	}
 
-	// observe or prepared mode
-	if r.PasteMultilineContent != "" {
-		code, _ := system.HighlightCode("txt", r.PasteMultilineContent)
-		fmt.Println(code)
+	// Process PasteMultilineContent
+	if len(r.PasteMultilineContent) > 0 {
+		for _, pc := range r.PasteMultilineContent {
+			targetPaneID := pc.PaneID
+			if targetPaneID == "" {
+				targetPaneID = m.ExecPane.Id // Default to primary exec pane
+			}
+			code, _ := system.HighlightCode("txt", pc.Content)
+			m.Println(fmt.Sprintf("Content to paste into pane %s:", targetPaneID))
+			fmt.Println(code)
 
-		isSafe := false
-		if m.GetPasteMultilineConfirm() {
-			isSafe, _ = m.confirmedToExec(r.PasteMultilineContent, "Paste multiline content?", false)
-		} else {
-			isSafe = true
-		}
+			isSafe := false
+			if m.GetPasteMultilineConfirm() {
+				isSafe, _ = m.confirmedToExec(pc.Content, fmt.Sprintf("Paste this content into pane %s?", targetPaneID), false)
+			} else {
+				isSafe = true
+			}
 
-		if isSafe {
-			m.Println("Pasting...")
-			system.TmuxSendCommandToPane(m.ExecPane.Id, r.PasteMultilineContent, true)
-			time.Sleep(1 * time.Second)
-		} else {
-			m.Status = ""
-			return false
+			if isSafe {
+				m.Println("Pasting...")
+				system.TmuxSendCommandToPane(targetPaneID, pc.Content, true)
+				time.Sleep(1 * time.Second)
+			} else {
+				m.Status = ""
+				return false
+			}
 		}
 	}
 
@@ -334,7 +355,7 @@ func (m *Manager) aiFollowedGuidelines(r AIResponse) (string, bool) {
 	if len(r.SendKeys) > 0 {
 		mainActionTags++
 	}
-	if r.PasteMultilineContent != "" {
+	if len(r.PasteMultilineContent) > 0 {
 		mainActionTags++
 	}
 

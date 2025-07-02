@@ -235,8 +235,9 @@ func (m *Manager) formatInfo() {
 	fmt.Println(formatter.FormatSection("Tmux Window Panes"))
 
 	panes, _ := m.GetTmuxPanes()
+	isAgentic := m.GetAgenticMode()
 	for _, pane := range panes {
 		pane.Refresh(m.GetMaxCaptureLines())
-		fmt.Println(pane.FormatInfo(formatter))
+		fmt.Println(pane.FormatInfo(formatter, isAgentic))
 	}
 }
