@@ -12,22 +12,28 @@ import (
 	"github.com/fatih/color"
 )
 
-type AIResponse struct {
-	Message                string
-	SendKeys               []string
-	ExecCommand            []string
-	PasteMultilineContent  string
-	RequestAccomplished    bool
-	ExecPaneSeemsBusy      bool
-	WaitingForUserResponse bool
-	NoComment              bool
-}
-
 // Parsed only when pane is prepared
 type CommandExecHistory struct {
 	Command string
 	Output  string
 	Code    int
+}
+
+type ExecCommandInfo struct {
+	Command string
+	PaneID  string
+}
+
+type AIResponse struct {
+	Message                string
+	SendKeys               []string
+	ExecCommand            []ExecCommandInfo
+	PasteMultilineContent  string
+	RequestAccomplished    bool
+	ExecPaneSeemsBusy      bool
+	WaitingForUserResponse bool
+	NoComment              bool
+	CreateExecPane         bool
 }
 
 // Manager represents the TmuxAI manager agent
@@ -140,6 +146,10 @@ func (m *Manager) GetPrompt() string {
 }
 
 func (ai *AIResponse) String() string {
+	var execCommands []string
+	for _, cmd := range ai.ExecCommand {
+		execCommands = append(execCommands, fmt.Sprintf("{Cmd: %s, PaneID: %s}", cmd.Command, cmd.PaneID))
+	}
 	return fmt.Sprintf(`
 	Message: %s
 	SendKeys: %v
@@ -149,14 +159,16 @@ func (ai *AIResponse) String() string {
 	ExecPaneSeemsBusy: %v
 	WaitingForUserResponse: %v
 	NoComment: %v
+	CreateExecPane: %v
 `,
 		ai.Message,
 		ai.SendKeys,
-		ai.ExecCommand,
+		execCommands,
 		ai.PasteMultilineContent,
 		ai.RequestAccomplished,
 		ai.ExecPaneSeemsBusy,
 		ai.WaitingForUserResponse,
 		ai.NoComment,
+		ai.CreateExecPane,
 	)
 }
