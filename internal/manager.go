@@ -24,11 +24,21 @@ type ExecCommandInfo struct {
 	PaneID  string
 }
 
+type SendKeysInfo struct {
+	Keys   string
+	PaneID string
+}
+
+type PasteInfo struct {
+	Content string
+	PaneID  string
+}
+
 type AIResponse struct {
 	Message                string
-	SendKeys               []string
+	SendKeys               []SendKeysInfo
 	ExecCommand            []ExecCommandInfo
-	PasteMultilineContent  string
+	PasteMultilineContent  []PasteInfo
 	RequestAccomplished    bool
 	ExecPaneSeemsBusy      bool
 	WaitingForUserResponse bool
@@ -150,11 +160,20 @@ func (ai *AIResponse) String() string {
 	for _, cmd := range ai.ExecCommand {
 		execCommands = append(execCommands, fmt.Sprintf("{Cmd: %s, PaneID: %s}", cmd.Command, cmd.PaneID))
 	}
+	var sendKeys []string
+	for _, sk := range ai.SendKeys {
+		sendKeys = append(sendKeys, fmt.Sprintf("{Keys: %s, PaneID: %s}", sk.Keys, sk.PaneID))
+	}
+	var pasteContent []string
+	for _, pc := range ai.PasteMultilineContent {
+		pasteContent = append(pasteContent, fmt.Sprintf("{Content: %s, PaneID: %s}", pc.Content, pc.PaneID))
+	}
+
 	return fmt.Sprintf(`
 	Message: %s
 	SendKeys: %v
 	ExecCommand: %v
-	PasteMultilineContent: %s
+	PasteMultilineContent: %v
 	RequestAccomplished: %v
 	ExecPaneSeemsBusy: %v
 	WaitingForUserResponse: %v
@@ -162,9 +181,9 @@ func (ai *AIResponse) String() string {
 	CreateExecPane: %v
 `,
 		ai.Message,
-		ai.SendKeys,
+		sendKeys,
 		execCommands,
-		ai.PasteMultilineContent,
+		pasteContent,
 		ai.RequestAccomplished,
 		ai.ExecPaneSeemsBusy,
 		ai.WaitingForUserResponse,
