@@ -28,6 +28,32 @@ func TmuxCreateNewPane(target string) (string, error) {
 	return paneId, nil
 }
 
+// TmuxSplitWindow splits a pane and returns the new pane's ID.
+// It targets the specified pane. The splitArgs are passed directly
+// to the `split-window` command.
+func TmuxSplitWindow(targetPaneID string, splitArgs string) (string, error) {
+	args := []string{"split-window", "-P", "-F", "#{pane_id}", "-t", targetPaneID}
+	args = append(args, strings.Fields(splitArgs)...)
+
+	cmd := exec.Command("tmux", args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		logger.Error("Failed to split tmux pane %s with args '%s': %v, stderr: %s", targetPaneID, splitArgs, err, stderr.String())
+		return "", err
+	}
+
+	newPaneID := strings.TrimSpace(stdout.String())
+	if newPaneID == "" {
+		return "", fmt.Errorf("tmux split-window returned an empty pane ID")
+	}
+	logger.Debug("Split pane %s, created new pane %s", targetPaneID, newPaneID)
+	return newPaneID, nil
+}
+
 // TmuxPanesDetails gets details for all panes in a target window
 func TmuxPanesDetails(target string) ([]TmuxPaneDetails, error) {
 	cmd := exec.Command("tmux", "list-panes", "-t", target, "-F", "#{pane_id},#{pane_active},#{pane_pid},#{pane_current_command},#{history_size},#{history_limit}")
@@ -178,6 +204,25 @@ func TmuxClearPane(paneId string) error {
 		return err
 	}
 	logger.Debug("Successfully cleared pane %s", paneId)
+	return nil
+}
+
+// TmuxKillPane kills a specific pane by ID.
+func TmuxKillPane(paneId string) error {
+	cmd := exec.Command("tmux", "kill-pane", "-t", paneId)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		errStr := stderr.String()
+		logger.Error("Failed to kill tmux pane %s: %v, stderr: %s", paneId, err, errStr)
+		if strings.Contains(errStr, "no such pane") {
+			logger.Info("Pane %s already gone, ignoring kill-pane error.", paneId)
+			return nil
+		}
+		return fmt.Errorf("failed to kill pane %s: %w", paneId, err)
+	}
+	logger.Debug("Killed pane %s", paneId)
 	return nil
 }
 
