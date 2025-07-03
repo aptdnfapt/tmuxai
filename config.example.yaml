@@ -3,6 +3,7 @@ max_capture_lines: 200 # Maximum number of lines to capture during each message
 wait_interval: 5 # Wait interval when exec pane is considered busy (used in observe and watch modes)
 
 agentic_mode: false # Set to true to enable multi-pane command execution and creation
+layout: "" # Auto-apply layout on startup (e.g., "1x2"). Requires agentic_mode: true
 
 send_keys_confirm: true # Confirm before executing send keys
 paste_multiline_confirm: true # Confirm before pasting multiline content

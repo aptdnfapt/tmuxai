@@ -161,8 +161,14 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 				}
 			}
 			if !found {
-				// Use the original PaneID in the error message for clarity.
-				m.Println(fmt.Sprintf("Error: Could not find target pane with ID %s", execCommand.PaneID))
+				// List available panes to help user understand what panes are available
+				availablePanes := []string{}
+				for _, p := range panes {
+					if m.GetAgenticMode() || p.IsTmuxAiExecPane {
+						availablePanes = append(availablePanes, p.Id)
+					}
+				}
+				m.Println(fmt.Sprintf("Error: Could not find target pane with ID %s. Available panes: %s", execCommand.PaneID, strings.Join(availablePanes, ", ")))
 				continue
 			}
 		} else {

@@ -50,6 +50,8 @@ func (m *Manager) GetTmuxPanesInXml(config *config.Config) string {
 		switch {
 		case pane.IsTmuxAiExecPane:
 			title = "tmuxai_exec_pane"
+		case m.GetAgenticMode():
+			title = "agentic_exec_pane"
 		default:
 			title = "read_only_pane"
 		}

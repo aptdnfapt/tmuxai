@@ -14,6 +14,7 @@ import (
 type Config struct {
 	Debug                 bool             `mapstructure:"debug"`
 	AgenticMode           bool             `mapstructure:"agentic_mode"`
+	Layout                string           `mapstructure:"layout"`
 	MaxCaptureLines       int              `mapstructure:"max_capture_lines"`
 	MaxContextSize        int              `mapstructure:"max_context_size"`
 	WaitInterval          int              `mapstructure:"wait_interval"`
@@ -47,6 +48,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Debug:                 false,
 		AgenticMode:           false,
+		Layout:                "",
 		MaxCaptureLines:       200,
 		MaxContextSize:        20000,
 		WaitInterval:          5,
