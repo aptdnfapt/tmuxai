@@ -17,6 +17,7 @@ var (
 	initMessage  string
 	taskFileFlag string
 	agenticFlag  bool
+	layoutFlag   string
 )
 
 var rootCmd = &cobra.Command{
@@ -61,6 +62,20 @@ var rootCmd = &cobra.Command{
 			logger.Error("manager.NewManager failed: %v", err)
 			os.Exit(1)
 		}
+
+		// Handle layout flag
+		if layoutFlag != "" {
+			if !mgr.GetAgenticMode() {
+				logger.Error("--layout flag requires --agentic mode to be enabled.")
+				fmt.Fprintln(os.Stderr, "Error: --layout flag requires --agentic mode to be enabled.")
+				os.Exit(1)
+			}
+			if err := mgr.ApplyLayout(layoutFlag); err != nil {
+				logger.Error("Failed to apply layout: %v", err)
+				fmt.Fprintf(os.Stderr, "Error applying layout: %v\n", err)
+				os.Exit(1)
+			}
+		}
 		if initMessage != "" {
 			logger.Info("Starting with initial subcommand: %s", initMessage)
 		}
@@ -76,6 +91,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&taskFileFlag, "file", "f", "", "Read request from specified file")
 	rootCmd.Flags().BoolP("version", "v", false, "Print version information")
 	rootCmd.Flags().BoolVar(&agenticFlag, "agentic", false, "Enable agentic multi-pane features")
+	rootCmd.Flags().StringVar(&layoutFlag, "layout", "", "Specify a layout to apply on startup (e.g., '1x2'). Requires --agentic flag.")
 }
 
 func Execute() error {

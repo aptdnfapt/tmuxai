@@ -177,6 +177,7 @@ func (c *CLIInterface) newCompleter() *completion.CmdCompletionOrList2 {
 					return AllowedConfigKeys, AllowedConfigKeys
 				}
 			}
+
 			return nil, nil
 		},
 	}
