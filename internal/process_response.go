@@ -63,6 +63,16 @@ func (m *Manager) parseAIResponse(response string) (AIResponse, error) {
 	}
 	cleanForMsg = rePaste.ReplaceAllString(cleanForMsg, "")
 
+	// Handle ReadFile
+	reReadFile := reWithPaneID("ReadFile")
+	readFileMatches := reReadFile.FindAllStringSubmatch(clean, -1)
+	for _, match := range readFileMatches {
+		if len(match) >= 3 {
+			r.ReadFile = append(r.ReadFile, ReadFileInfo{PaneID: match[1], FilePath: html.UnescapeString(strings.TrimSpace(match[2]))})
+		}
+	}
+	cleanForMsg = reReadFile.ReplaceAllString(cleanForMsg, "")
+
 	// Handle the simple boolean tags
 	for _, t := range tags {
 		reTag := regexp.MustCompile(fmt.Sprintf(`(?s)<%s>(.*?)</%s>`, t.name, t.name))
