@@ -63,14 +63,19 @@ var rootCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// Handle layout flag
-		if layoutFlag != "" {
+		// Handle layout - either from flag or config
+		layout := layoutFlag
+		if layout == "" && cfg.Layout != "" {
+			layout = cfg.Layout
+		}
+		
+		if layout != "" {
 			if !mgr.GetAgenticMode() {
-				logger.Error("--layout flag requires --agentic mode to be enabled.")
-				fmt.Fprintln(os.Stderr, "Error: --layout flag requires --agentic mode to be enabled.")
+				logger.Error("Layout requires agentic mode to be enabled.")
+				fmt.Fprintln(os.Stderr, "Error: Layout requires agentic mode to be enabled. Use --agentic flag or set agentic_mode: true in config.")
 				os.Exit(1)
 			}
-			if err := mgr.ApplyLayout(layoutFlag); err != nil {
+			if err := mgr.ApplyLayout(layout); err != nil {
 				logger.Error("Failed to apply layout: %v", err)
 				fmt.Fprintf(os.Stderr, "Error applying layout: %v\n", err)
 				os.Exit(1)

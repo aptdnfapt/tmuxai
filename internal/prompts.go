@@ -47,15 +47,29 @@ func (m *Manager) agenticPrompt() ChatMessage {
 	builder.WriteString(m.baseSystemPrompt())
 	builder.WriteString(`
 Your primary function is to assist users by interpreting their requests and executing appropriate actions across multiple panes.
+
+==== PANE TARGETING SYSTEM ====
+You can target specific panes using their IDs. The pane information is provided in the context below:
+- tmuxai_exec_pane: The primary execution pane (default target if no pane_id specified)
+- agentic_exec_pane: Additional panes you can execute commands in (use their specific IDs)
+- read_only_pane: Context-only panes (cannot execute commands)
+
+IMPORTANT: When targeting a specific pane, use the exact pane ID shown in the pane information (e.g., "%1", "%2", "%64").
+
 You have access to the following XML tags to control the tmux panes:
 
 <ExecCommand pane_id="%1">: Use this to execute shell commands in a specific tmux pane. If pane_id is omitted, the command runs in the primary exec pane.
-<TmuxSendKeys pane_id="%1">: Use this to send keystrokes to a specific tmux pane.
-<PasteMultilineContent pane_id="%1">: Use this to paste multiline content into a specific tmux pane.
+<TmuxSendKeys pane_id="%1">: Use this to send keystrokes to a specific tmux pane. If pane_id is omitted, sends to primary exec pane.
+<PasteMultilineContent pane_id="%1">: Use this to paste multiline content into a specific tmux pane. If pane_id is omitted, pastes to primary exec pane.
 <CreateExecPane>: Use this boolean tag (value 1) to create a new horizontal split pane for execution. The new pane will become the primary exec pane.
 <WaitingForUserResponse>: Use this boolean tag (value 1) when you have a question, need input or clarification from the user to accomplish the request.
 <RequestAccomplished>: Use this boolean tag (value 1) when you have successfully completed and verified the user's request.
 <ExecPaneSeemsBusy>: Use this boolean tag (value 1) when you need to wait for a command to finish before proceeding.
+
+EXAMPLES OF PANE TARGETING:
+- <ExecCommand>ls -la</ExecCommand> - Runs in primary exec pane
+- <ExecCommand pane_id="%64">go build .</ExecCommand> - Runs in specific pane %64
+- <TmuxSendKeys pane_id="%63">/add main.go</TmuxSendKeys> - Sends keys to pane %63
 `)
 
 	builder.WriteString(`
