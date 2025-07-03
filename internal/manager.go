@@ -34,11 +34,17 @@ type PasteInfo struct {
 	PaneID  string
 }
 
+type ReadFileInfo struct {
+	FilePath string
+	PaneID   string
+}
+
 type AIResponse struct {
 	Message                string
 	SendKeys               []SendKeysInfo
 	ExecCommand            []ExecCommandInfo
 	PasteMultilineContent  []PasteInfo
+	ReadFile               []ReadFileInfo
 	RequestAccomplished    bool
 	ExecPaneSeemsBusy      bool
 	WaitingForUserResponse bool
@@ -170,12 +176,17 @@ func (ai *AIResponse) String() string {
 	for _, pc := range ai.PasteMultilineContent {
 		pasteContent = append(pasteContent, fmt.Sprintf("{Content: %s, PaneID: %s}", pc.Content, pc.PaneID))
 	}
+	var readFiles []string
+	for _, rf := range ai.ReadFile {
+		readFiles = append(readFiles, fmt.Sprintf("{FilePath: %s, PaneID: %s}", rf.FilePath, rf.PaneID))
+	}
 
 	return fmt.Sprintf(`
 	Message: %s
 	SendKeys: %v
 	ExecCommand: %v
 	PasteMultilineContent: %v
+	ReadFile: %v
 	RequestAccomplished: %v
 	ExecPaneSeemsBusy: %v
 	WaitingForUserResponse: %v
@@ -186,6 +197,7 @@ func (ai *AIResponse) String() string {
 		sendKeys,
 		execCommands,
 		pasteContent,
+		readFiles,
 		ai.RequestAccomplished,
 		ai.ExecPaneSeemsBusy,
 		ai.WaitingForUserResponse,

@@ -314,6 +314,37 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		}
 	}
 
+	// Process ReadFile requests
+	if len(r.ReadFile) > 0 {
+		var fileContents []string
+		for _, readFile := range r.ReadFile {
+			m.Println(fmt.Sprintf("Reading file: %s", readFile.FilePath))
+			
+			content, err := m.ProcessReadFile(readFile)
+			if err != nil {
+				m.Println(fmt.Sprintf("Error reading file %s: %v", readFile.FilePath, err))
+				continue
+			}
+			
+			// Add file content to context for next AI response
+			fileHeader := fmt.Sprintf("\n--- File: %s ---\n", readFile.FilePath)
+			fileFooter := fmt.Sprintf("\n--- End of %s ---\n", readFile.FilePath)
+			fileContents = append(fileContents, fileHeader+content+fileFooter)
+		}
+		
+		// If we successfully read any files, add them to the conversation context
+		if len(fileContents) > 0 {
+			allFileContent := strings.Join(fileContents, "\n")
+			fileMessage := ChatMessage{
+				Content:   "File contents read:\n" + allFileContent,
+				FromUser:  false,
+				Timestamp: time.Now(),
+			}
+			m.Messages = append(m.Messages, fileMessage)
+			m.Println(fmt.Sprintf("Successfully read %d file(s) and added to context", len(fileContents)))
+		}
+	}
+
 	if r.RequestAccomplished {
 		m.Status = ""
 		return true
@@ -394,9 +425,12 @@ func (m *Manager) aiFollowedGuidelines(r AIResponse) (string, bool) {
 	if len(r.PasteMultilineContent) > 0 {
 		mainActionTags++
 	}
+	if len(r.ReadFile) > 0 {
+		mainActionTags++
+	}
 
 	if mainActionTags > 1 {
-		return "AI Error: Only one of <ExecCommand>, <TmuxSendKeys>, or <PasteMultilineContent> can be used at a time.", false
+		return "AI Error: Only one of <ExecCommand>, <TmuxSendKeys>, <PasteMultilineContent>, or <ReadFile> can be used at a time.", false
 	}
 
 	// Rule: State tags cannot be mixed with any action tags (including CreateExecPane).

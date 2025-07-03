@@ -8,6 +8,8 @@ layout: "" # Auto-apply layout on startup (e.g., "1x2"). Requires agentic_mode: 
 send_keys_confirm: true # Confirm before executing send keys
 paste_multiline_confirm: true # Confirm before pasting multiline content
 exec_confirm: true # Confirm before executing commands
+read_file_confirm: true # Confirm before reading files
+max_read_file_size: 250000 # Maximum file size in bytes for reading (250KB default)
 
 # Not only OpenRouter, you can use any OpenAI compatible API
 openrouter:
