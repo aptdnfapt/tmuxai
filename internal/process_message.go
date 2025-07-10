@@ -47,10 +47,8 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		history = []ChatMessage{m.watchPrompt()}
 	case m.GetAgenticMode():
 		history = []ChatMessage{m.agenticPrompt()}
-	case m.ExecPane.IsPrepared:
-		history = []ChatMessage{m.chatAssistantPrompt(true)}
 	default:
-		history = []ChatMessage{m.chatAssistantPrompt(false)}
+		history = []ChatMessage{m.chatAssistantPrompt(m.ExecPane.IsPrepared)}
 	}
 
 	history = append(history, m.Messages...)
@@ -133,12 +131,6 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		fmt.Println(system.Cosmetics(r.Message))
 	}
 
-	// Don't append to history if AI is waiting for the pane or is watch mode no comment
-	if r.ExecPaneSeemsBusy || r.NoComment {
-	} else {
-		m.Messages = append(m.Messages, currentMessage, responseMsg)
-	}
-
 	// observe/prepared mode
 	for _, execCommand := range r.ExecCommand {
 		var targetPane *system.TmuxPaneDetails
@@ -196,10 +188,48 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 			m.LastExecPaneID = targetPane.Id
 
 			targetPane.Refresh(m.GetMaxCaptureLines())
-			if targetPane.IsPrepared {
-				m.ExecWaitCapture(command, targetPane)
+			const endMarker = "TMUXAI:EXITCODE"
+			originalCommand := command
+			commandToRun := command
+			shouldWait := false
+
+			// Agentic mode: AI is responsible for adding the marker.
+			if m.GetAgenticMode() {
+				if strings.Contains(commandToRun, endMarker) {
+					shouldWait = true
+				}
+			} else { // Normal mode: check if the pane is prepared.
+				if targetPane.IsPrepared {
+					markerCommand := fmt.Sprintf(`; echo "%s:$?"`, endMarker)
+					commandToRun += markerCommand
+					shouldWait = true
+				}
+			}
+
+			if shouldWait {
+				// A synchronous command was requested. First, add the history for the *current* turn.
+				if !r.ExecPaneSeemsBusy && !r.NoComment {
+					m.Messages = append(m.Messages, currentMessage, responseMsg)
+				}
+
+				// Execute the command and wait for it to complete.
+				system.TmuxSendCommandToPane(targetPane.Id, commandToRun, true)
+				result, err := m.ExecWaitCapture(targetPane)
+				if err != nil {
+					m.Println(fmt.Sprintf("Command cancelled or failed to wait: %v", err))
+					m.Status = ""
+					return false
+				}
+				result.Command = originalCommand // Fill in the command
+				m.ExecHistory = append(m.ExecHistory, result)
+				logger.Debug("Synchronous command finished. Code: %d", result.Code)
+
+				// Now that the command is done, start the next turn by re-processing with the updated context.
+				accomplished := m.ProcessUserMessage(ctx, "Ok, that command finished. Here is the updated pane content, what is the next step?")
+				return accomplished // Return immediately to prevent any further processing of the stale AI response.
 			} else {
-				system.TmuxSendCommandToPane(targetPane.Id, command, true)
+				// Fire-and-forget for unprepared panes or agentic commands without the marker.
+				system.TmuxSendCommandToPane(targetPane.Id, commandToRun, true)
 				time.Sleep(1 * time.Second)
 			}
 		} else {
@@ -268,16 +298,8 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		}
 	}
 
-	if r.ExecPaneSeemsBusy {
-		m.Countdown(m.GetWaitInterval())
-		// Create a new context for this recursive call
-		newCtx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		accomplished := m.ProcessUserMessage(newCtx, "waited for 5 more seconds, here is the current pane(s) content")
-		if accomplished {
-			return true
-		}
-	}
+	// This block handles state changes and asynchronous actions.
+	// Synchronous actions (waitable ExecCommand) have already returned.
 
 	// Process PasteMultilineContent
 	if len(r.PasteMultilineContent) > 0 {
@@ -316,56 +338,91 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 	// Process ReadFile requests
 	if len(r.ReadFile) > 0 {
+		// A ReadFile request is also synchronous and requires a new turn.
+		if !r.ExecPaneSeemsBusy && !r.NoComment {
+			m.Messages = append(m.Messages, currentMessage, responseMsg)
+		}
 		var fileContents []string
 		for _, readFile := range r.ReadFile {
 			m.Println(fmt.Sprintf("Reading file: %s", readFile.FilePath))
-			
+
 			content, err := m.ProcessReadFile(readFile)
 			if err != nil {
 				m.Println(fmt.Sprintf("Error reading file %s: %v", readFile.FilePath, err))
 				continue
 			}
-			
+
 			// Add file content to context for next AI response
 			fileHeader := fmt.Sprintf("\n--- File: %s ---\n", readFile.FilePath)
 			fileFooter := fmt.Sprintf("\n--- End of %s ---\n", readFile.FilePath)
 			fileContents = append(fileContents, fileHeader+content+fileFooter)
 		}
-		
+
 		// If we successfully read any files, add them to the conversation context
+		// and re-process immediately so the AI can use the file content.
 		if len(fileContents) > 0 {
 			allFileContent := strings.Join(fileContents, "\n")
+			// Create a system message with the file content
 			fileMessage := ChatMessage{
-				Content:   "File contents read:\n" + allFileContent,
-				FromUser:  false,
+				Content:   "I have read the file(s) you requested. Here are the contents:\n" + allFileContent,
+				FromUser:  false, // This is context from the system, not an assistant response
 				Timestamp: time.Now(),
 			}
 			m.Messages = append(m.Messages, fileMessage)
-			m.Println(fmt.Sprintf("Successfully read %d file(s) and added to context", len(fileContents)))
+			m.Println(fmt.Sprintf("Successfully read %d file(s) and added to context.", len(fileContents)))
+
+			// Re-process immediately.
+			accomplished := m.ProcessUserMessage(ctx, "Now that you have the file content, what is the next step?")
+			return accomplished
 		}
 	}
 
+	// Handle final state changes
 	if r.RequestAccomplished {
+		if !r.ExecPaneSeemsBusy && !r.NoComment {
+			m.Messages = append(m.Messages, currentMessage, responseMsg)
+		}
 		m.Status = ""
 		return true
 	}
 
 	if r.WaitingForUserResponse {
+		if !r.ExecPaneSeemsBusy && !r.NoComment {
+			m.Messages = append(m.Messages, currentMessage, responseMsg)
+		}
 		m.Status = "waiting"
 		return false
 	}
 
 	// watch mode only
 	if r.NoComment {
+		// Do not append to history for NoComment
 		return false
 	}
 
-	if !m.WatchMode {
-		accomplished := m.ProcessUserMessage(ctx, "sending updated pane(s) content")
-		if accomplished {
-			return true
+	// This block handles asynchronous actions (SendKeys, Paste, or async ExecCommand).
+	isAsyncAction := len(r.SendKeys) > 0 || len(r.PasteMultilineContent) > 0
+	if len(r.ExecCommand) > 0 {
+		isAsyncAction = true // Any exec command reaching here is async
+	}
+
+	if isAsyncAction || r.ExecPaneSeemsBusy {
+		// For async actions, we append history, do a countdown, and then re-process.
+		if !r.ExecPaneSeemsBusy && !r.NoComment {
+			m.Messages = append(m.Messages, currentMessage, responseMsg)
+		}
+
+		m.Countdown(m.GetWaitInterval())
+
+		// If the AI didn't finish or ask us to wait, continue the loop.
+		if !r.RequestAccomplished && !r.WaitingForUserResponse {
+			accomplished := m.ProcessUserMessage(ctx, "Ok, that's done. Here is the current pane content, what's next?")
+			if accomplished {
+				return true
+			}
 		}
 	}
+
 	return false
 }
 
