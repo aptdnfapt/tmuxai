@@ -23,7 +23,7 @@ build context efficiently.
 4.  **Task Delegation**: The user provides a high-level task, such as "Add a new endpoint to handle user profiles."
 5.  **Planning & Confirmation**: `tmuxai` analyzes the request, potentially reads more specific source files, and forms a plan. It then determines which files need to be created or modified.
 6.  **Aider Invocation**: For file modifications, `tmuxai` will construct and execute a precise, **non-interactive** `aider` command.
-    *   **Editing**: `aider --yes --message "Here are the detailed changes for file X and file Y..." path/to/fileX path/to/fileY`
+    *   **Editing**: `aider --yes --message "Here are the detailed changes for file X and file Y..." path/to/fileX path/to/fileY ; echo TMUXAI_CMD_END_CODE something like that to let tmuxai know that aider is running and wait for its eddit .`
     *   **File Creation**: `tmuxai` first creates an empty file (`touch new_feature.go`) and then instructs `aider` to populate it using the same non-interactive method.
 7.  **Verification**: After the `aider --yes` command finishes, `tmuxai`'s enhanced execution tracking (using an end-of-command marker) will detect that the command has completed. It can then proceed to run build commands, tests, or linters to verify the changes.
 8.  **Iteration**: The user can continue the conversation, asking for further refinements or new tasks, with the full history preserved across sessions.
@@ -61,7 +61,7 @@ workspace.
 
 1.  **Efficient Multi-File Reading**:
     *   **Problem**: While the AI can emit multiple `<ReadFile>` tags, this can be verbose. A more streamlined method for ingesting project context is needed.
-    *   **Required Change**: Enhance the `<ReadFile>` tool to accept multiple, space-separated file paths within a single tag (e.g., `<ReadFile>file1.go file2.go internal/utils.go</ReadFile>`). This will require updating `internal/process_response.go` to parse the paths and `internal/read_file.go` to process them in a loop. A configuration option can be added to toggle this multi-file behavior.
+    *   **Required Change**: Enhance the `<ReadFile>` tool to accept multiple, space-separated file paths within a single tag (e.g., `<ReadFile>file1.go file2.go internal/utils.go</ReadFile>`). This will require updating `internal/process_response.go` to parse the paths and `internal/read_file.go` to process them in a loop. A configuration option can be added to toggle this multi-file behavior from yaml .
 
 2.  **Persistent, Directory-Scoped Session History**:
     *   **Problem**: The full conversation state (`m.Messages` in `internal/manager.go`) is currently stored in memory and is lost when `tmuxai` exits. This prevents the continuation of complex, multi-day coding tasks.
@@ -69,9 +69,9 @@ workspace.
         *   **Storage**: When `tmuxai --agentic` is run, it will record the current working directory. The conversation history (`ChatMessage` slice) will be saved to a JSON file (e.g., `history.agentic.json`) inside a `.tmuxai_sessions` directory within that project's folder. This keeps session data alongside the project it belongs to.
         *   **Session Management Command**: Introduce a new `/session` command.
             *   When `tmuxai` starts in a directory with existing sessions, it will notify the user.
-            *   The `/session` command will allow the user to list and load a previous conversation, restoring the full context.
+            *   The `/session` command will allow the user to list and load a previous conversation, restoring the full context from all panes and also tmuxai chat.
         *   **AI-Generated Titles**: After 3-4 conversational turns, `tmuxai` will use its underlying AI model to generate a concise, descriptive title for the session (e.g., "Refactoring the user authentication module"). This title will be stored with the session data and displayed when listing sessions. Short or inconclusive conversations will receive a default, timestamp-based title. The title will be updated as the session progresses.
-        *   **Automatic Save**: The session history will be saved automatically upon exiting `tmuxai`.
+        *   **Automatic Save**: The session history will be saved automatically upon exiting `tmuxai` or if the tmux pane dies .. it will save on real time to avoid context loss.
 
 3.  **Pane-Context-Aware File Reading**:
     *   **Decision**: This is no longer required. The current file reading logic, which resolves paths relative to `tmuxai`'s own working directory, is sufficient for the planned workflow, as the user will typically launch `tmuxai` from the project root.

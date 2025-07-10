@@ -68,7 +68,13 @@ func (m *Manager) parseAIResponse(response string) (AIResponse, error) {
 	readFileMatches := reReadFile.FindAllStringSubmatch(clean, -1)
 	for _, match := range readFileMatches {
 		if len(match) >= 3 {
-			r.ReadFile = append(r.ReadFile, ReadFileInfo{PaneID: match[1], FilePath: html.UnescapeString(strings.TrimSpace(match[2]))})
+			paneID := match[1]
+			filePathsStr := html.UnescapeString(strings.TrimSpace(match[2]))
+			// Split by whitespace to handle multiple files in one tag
+			filePaths := strings.Fields(filePathsStr)
+			for _, fp := range filePaths {
+				r.ReadFile = append(r.ReadFile, ReadFileInfo{PaneID: paneID, FilePath: fp})
+			}
 		}
 	}
 	cleanForMsg = reReadFile.ReplaceAllString(cleanForMsg, "")
