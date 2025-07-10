@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/alvinunreal/tmuxai/logger"
 )
 
 // GetReadFileConfirm returns the read file confirmation setting
@@ -29,15 +27,15 @@ func (m *Manager) GetMaxReadFileSize() int {
 	return m.Config.MaxReadFileSize
 }
 
-// ProcessReadFile handles file reading requests
-func (m *Manager) ProcessReadFile(readFileInfo ReadFileInfo) (string, error) {
-	filePath := strings.TrimSpace(readFileInfo.FilePath)
-	
+// validateReadFile checks if a file is valid for reading and returns its info.
+func (m *Manager) validateReadFile(filePath string) (os.FileInfo, string, error) {
+	filePath = strings.TrimSpace(filePath)
+
 	// Convert relative paths to absolute
 	if !filepath.IsAbs(filePath) {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return "", fmt.Errorf("failed to get current directory: %w", err)
+			return nil, "", fmt.Errorf("failed to get current directory: %w", err)
 		}
 		filePath = filepath.Join(cwd, filePath)
 	}
@@ -46,43 +44,28 @@ func (m *Manager) ProcessReadFile(readFileInfo ReadFileInfo) (string, error) {
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf("file does not exist: %s", filePath)
+			return nil, filePath, fmt.Errorf("file does not exist: %s", filePath)
 		}
-		return "", fmt.Errorf("failed to access file: %w", err)
+		return nil, filePath, fmt.Errorf("failed to access file: %w", err)
 	}
 
 	// Check if it's a directory
 	if fileInfo.IsDir() {
-		return "", fmt.Errorf("path is a directory, not a file: %s", filePath)
+		return nil, filePath, fmt.Errorf("path is a directory, not a file: %s", filePath)
 	}
 
 	// Check file size
 	maxSize := int64(m.GetMaxReadFileSize())
 	if fileInfo.Size() > maxSize {
-		return "", fmt.Errorf("file too large (%d bytes, max %d bytes): %s", fileInfo.Size(), maxSize, filePath)
+		return nil, filePath, fmt.Errorf("file too large (%d bytes, max %d bytes): %s", fileInfo.Size(), maxSize, filePath)
 	}
 
 	// Check if it's a binary file (simple heuristic)
 	if !isTextFile(filePath) {
-		return "", fmt.Errorf("file appears to be binary: %s", filePath)
+		return nil, filePath, fmt.Errorf("file appears to be binary: %s", filePath)
 	}
 
-	// Ask for confirmation
-	if m.GetReadFileConfirm() {
-		confirmed, _ := m.confirmedToExec("", fmt.Sprintf("Read file %s (%d bytes)?", filePath, fileInfo.Size()), false)
-		if !confirmed {
-			return "", fmt.Errorf("file reading cancelled by user")
-		}
-	}
-
-	// Read the file
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read file: %w", err)
-	}
-
-	logger.Info("Read file: %s (%d bytes)", filePath, len(content))
-	return string(content), nil
+	return fileInfo, filePath, nil
 }
 
 // isTextFile performs a simple check to determine if a file is likely text
