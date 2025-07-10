@@ -65,7 +65,7 @@ build context efficiently.
         *   **AI-Generated Titles**: Use the AI to generate a concise, descriptive title for the session, to be displayed when listing sessions.
         *   **Automatic Save**: Save the session automatically on exit or if the pane dies to avoid context loss.
 
-2.  **Deeper Aider Integration**:
+2.  **Deeper Aider Integration**: ( need to work on the agentic aider md file . as its the sys prompt  .)
     *   **Goal**: The primary long-term goal is to enhance `tmuxai` to act as an intelligent orchestrator for `aider`.
     *   **Workflow**: `tmuxai` would manage the high-level workflow (project comprehension, verification), while delegating file editing tasks to `aider`.
     *   **Implementation**: This will require teaching `tmuxai` to construct and execute precise, non-interactive `aider` commands (e.g., `aider --yes --message "..." file1 file2`) and then run verification steps like builds or tests.
