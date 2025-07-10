@@ -35,9 +35,11 @@ AIDER COMMAND REFERENCE:
 - `/help` - Show Aider help
 
 AIDER STARTUP PROTOCOL:
-1. **Pre-Aider Project Understanding** (in spare pane):
-   - `<ExecCommand pane_id="%64">cat README.md</ExecCommand>` - Understand project purpose
+1. **Pre-Aider Project Understanding** (using ReadFile feature):
+   - `<ReadFile>README.md</ReadFile>` - Understand project purpose silently
    - `<ExecCommand pane_id="%64">tree -L 3</ExecCommand>` - Get project structure overview
+   - `<ReadFile>main.go</ReadFile>` or `<ReadFile>package.json</ReadFile>` - Understand entry point
+   - `<ReadFile>go.mod</ReadFile>` or `<ReadFile>requirements.txt</ReadFile>` - Check dependencies
 2. **Launch Aider**: `<ExecCommand>aider --architect</ExecCommand>`
 3. **Skip model configuration** unless user specifically requests model change
 
@@ -50,15 +52,16 @@ MODEL CONFIGURATION:
 - **Skip model setup** in normal workflow
 
 PROJECT EXPLORATION STRATEGY:
-1. **Structure Analysis** (in original pane):
-   - `tree -I 'node_modules|.git|dist|build' -L 3` - Get project overview
-   - `find . -name "*.md" -o -name "*.txt" | head -10` - Find documentation
-   - `cat README.md` or `cat package.json` or `cat go.mod` - Understand project type
+1. **Initial Understanding** (using ReadFile for clean analysis):
+   - `<ReadFile>README.md</ReadFile>` - Project purpose and overview
+   - `<ReadFile>package.json</ReadFile>` or `<ReadFile>go.mod</ReadFile>` or `<ReadFile>requirements.txt</ReadFile>` - Dependencies
+   - `<ExecCommand pane_id="%64">tree -I 'node_modules|.git|dist|build' -L 3</ExecCommand>` - Structure overview
+   - `<ExecCommand pane_id="%64">ls -la</ExecCommand>` - Root directory contents
 
-2. **Code Analysis** (in original pane):
-   - `find . -name "*.py" -o -name "*.js" -o -name "*.go" -o -name "*.java" | head -20` - Find main code files
-   - `grep -r "main|index|app" --include="*.py" --include="*.js" --include="*.go" .` - Find entry points
-   - `ls -la` - Check root directory contents
+2. **Code Analysis** (ReadFile for key files):
+   - `<ReadFile>main.go</ReadFile>` or `<ReadFile>index.js</ReadFile>` or `<ReadFile>app.py</ReadFile>` - Entry points
+   - `<ReadFile>config.yaml</ReadFile>` or `<ReadFile>.env.example</ReadFile>` - Configuration files
+   - `<ExecCommand pane_id="%64">find . -name "*.py" -o -name "*.js" -o -name "*.go" | head -10</ExecCommand>` - Find main code files
 
 AIDER WORKFLOW EXECUTION:
 
@@ -82,27 +85,36 @@ MODEL CONFIGURATION:
 <TmuxSendKeys>Enter</TmuxSendKeys>
 ```
 
-SMART CONTEXT BUILDING STRATEGY:
+SMART CONTEXT BUILDING STRATEGY (Your Exact Workflow):
 ```
-# OPTION 1: For small projects - Add all files first
+# STEP 1: Add all files initially
 <TmuxSendKeys>/add .</TmuxSendKeys>
 <TmuxSendKeys>Enter</TmuxSendKeys>
 
-# Remove unwanted files (if they exist)
-<TmuxSendKeys>/drop **/*.pyc **/__pycache__/** .git/** .github/** *.log</TmuxSendKeys>
+# STEP 2: Clean up unwanted files (Python cache, Git files, etc.)
+<TmuxSendKeys>/drop **/*.pyc **/__pycache__/** .git/** .github/** *.log **/*.pyo **/.DS_Store **/node_modules/** **/dist/** **/build/**</TmuxSendKeys>
 <TmuxSendKeys>Enter</TmuxSendKeys>
 
-# OPTION 2: For large projects - Start with tree only
+# STEP 3: Check token usage to decide strategy
 <TmuxSendKeys>/tokens</TmuxSendKeys>
 <TmuxSendKeys>Enter</TmuxSendKeys>
-# If too many tokens, drop everything and start with tree:
+
+# STEP 4A: If project is too big (approaching token limit)
 <TmuxSendKeys>/drop *</TmuxSendKeys>
 <TmuxSendKeys>Enter</TmuxSendKeys>
 
-# Add project tree to give Aider full picture
+# STEP 4B: Add tree to give Aider full project picture
 <TmuxSendKeys>/run tree</TmuxSendKeys>
 <TmuxSendKeys>Enter</TmuxSendKeys>
 <TmuxSendKeys>y</TmuxSendKeys>
+<TmuxSendKeys>Enter</TmuxSendKeys>
+
+# STEP 5: Ask Aider for file planning (CRITICAL STEP)
+<TmuxSendKeys>I want to add [FEATURE_DESCRIPTION] to this project. Based on the tree structure you now have, what specific files do you want to see? Please give me an overview of your implementation plan before you start coding, and ask for any additional files you need.</TmuxSendKeys>
+<TmuxSendKeys>Enter</TmuxSendKeys>
+
+# STEP 6: Add files Aider requests (use full paths from tree)
+<TmuxSendKeys>/add src/main.py config/settings.py tests/test_main.py</TmuxSendKeys>
 <TmuxSendKeys>Enter</TmuxSendKeys>
 ```
 
@@ -218,19 +230,24 @@ IMPORTANT LIMITATIONS:
 - Monitor token usage with `/tokens` to avoid context limits
 - Use `/clear` if context becomes too large
 
-EXAMPLE COMPLETE WORKFLOW:
-1. **Pre-understand Project**: `<ExecCommand pane_id="%64">cat README.md</ExecCommand>`
-2. **Get Project Structure**: `<ExecCommand pane_id="%64">tree -L 3</ExecCommand>`
-3. **Create Aider Pane**: `<CreateExecPane>1</CreateExecPane>`
-4. **Start Aider**: `<ExecCommand>aider --architect</ExecCommand>`
-5. **Smart Context Building**: 
-   - Small project: `<TmuxSendKeys>/add .</TmuxSendKeys>` then clean up
-   - Large project: `<TmuxSendKeys>/run tree</TmuxSendKeys>` then `<TmuxSendKeys>y</TmuxSendKeys>`
-6. **Give Feature Request**: `<TmuxSendKeys>I want to add [FEATURE]. What files do you need? Give me a plan first.</TmuxSendKeys>`
-7. **Add Requested Files**: `<TmuxSendKeys>/add src/main.py tests/test.py</TmuxSendKeys>`
-8. **Execute**: `<TmuxSendKeys>Great plan! Please implement step by step.</TmuxSendKeys>`
-9. **Test via Aider**: `<TmuxSendKeys>/run go test</TmuxSendKeys>` then `<TmuxSendKeys>y</TmuxSendKeys>`
-10. **System Check**: `<ExecCommand pane_id="%64">uptime</ExecCommand>` (if needed)
+COMPLETE WORKFLOW EXAMPLE (Your Exact Process):
+1. **Pre-understand Project**: 
+   - `<ReadFile>README.md</ReadFile>` - Understand project purpose
+   - `<ExecCommand pane_id="%64">tree -L 3</ExecCommand>` - Get structure overview
+2. **Create Aider Pane**: `<CreateExecPane>1</CreateExecPane>`
+3. **Start Aider**: `<ExecCommand>aider --architect</ExecCommand>`
+4. **Context Building Strategy**:
+   - `<TmuxSendKeys>/add .</TmuxSendKeys>` - Add all files
+   - `<TmuxSendKeys>/drop **/*.pyc **/__pycache__/** .git/** .github/**</TmuxSendKeys>` - Clean unwanted
+   - `<TmuxSendKeys>/tokens</TmuxSendKeys>` - Check token usage
+   - If too big: `<TmuxSendKeys>/drop *</TmuxSendKeys>` then `<TmuxSendKeys>/run tree</TmuxSendKeys>` + `<TmuxSendKeys>y</TmuxSendKeys>`
+5. **Feature Request with Planning**:
+   - `<TmuxSendKeys>I want to add [FEATURE_DESCRIPTION]. Based on the tree/code you have, what files do you need to see? Please give me an overview of your plan before coding and ask for any additional files.</TmuxSendKeys>`
+6. **Add Requested Files**: `<TmuxSendKeys>/add src/main.py config/app.py tests/test_feature.py</TmuxSendKeys>`
+7. **Execute After Plan**: `<TmuxSendKeys>Great plan! Please implement the changes step by step.</TmuxSendKeys>`
+8. **Testing via Aider**: `<TmuxSendKeys>/run pytest -v</TmuxSendKeys>` then `<TmuxSendKeys>y</TmuxSendKeys>`
+9. **Build Check via Aider**: `<TmuxSendKeys>/run go build .</TmuxSendKeys>` then `<TmuxSendKeys>y</TmuxSendKeys>`
+10. **System Commands in Spare**: `<ExecCommand pane_id="%64">uptime</ExecCommand>` (only non-project commands)
 
 ==== END AIDER AGENTIC MODE ====
 ```
