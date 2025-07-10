@@ -32,46 +32,41 @@ build context efficiently.
 
 ## III. Analysis of Current TmuxAI Capabilities
 
-### What TmuxAI Has (Strengths for this Plan)
+### What TmuxAI Has
 
 1.  **Agentic Mode & Multi-Pane Control**:
-    *   The `--agentic` flag and `agentic_mode` config (`config/config.go`) already exist.
-    *   The system prompt for agentic mode (`internal/prompts.go`) supports targeting specific panes via `<ExecCommand pane_id="%ID">`, which is crucial for orchestrating commands across a
-workspace.
-    *   The ability to create new panes with `<CreateExecPane>` fits the workflow of spawning `aider` or verification processes in dedicated panes.
+    *   The `--agentic` flag and `agentic_mode` config (`config/config.go`) are fully functional.
+    *   The system prompt for agentic mode (`internal/prompts.go`) instructs the AI to target specific panes via `pane_id` attributes, enabling complex workspace orchestration.
+    *   The AI can create new panes on demand using `<CreateExecPane>`.
 
-2.  **Enhanced Command Execution & Waiting**:
-    *   **Problem**: The current `Prepare Mode`'s method of injecting a custom shell prompt is fragile and often conflicts with user-defined prompts from tools like `oh-my-posh` or `starship`.
-    *   **New Solution**: A universal, marker-based system will be implemented to reliably detect command completion and capture exit codes without modifying user prompts.
-    *   **Implementation (Non-Agentic Mode)**: When `tmuxai` executes a command, it will automatically append a suffix like `; echo "TMUXAI_CMD_END_CODE=$?"`. The Go backend will then watch for the `TMUXAI_CMD_END_CODE=` marker to determine when the command has finished, and it will parse the exit code. This replaces the need for the `/prepare` command.
-    *   **Implementation (Agentic Mode)**: The AI's system prompt will be updated. It will be instructed to intelligently append the `; echo "TMUXAI_CMD_END_CODE=$?"` marker to commands it identifies as long-running or critical (e.g., `sudo apt update`, `go build`, `aider --yes`). For simple, quick commands (like `ls`), it can omit the marker for a faster, asynchronous execution. This gives the AI more granular control over the execution flow.
+2.  **Reliable, Marker-Based Command Execution**:
+    *   A robust, marker-based system (`TMUXAI:EXITCODE:$?`) is implemented to reliably detect command completion and capture exit codes.
+    *   In non-agentic "prepared" mode, the marker is appended automatically for synchronous execution.
+    *   In agentic mode, the AI is instructed to append the marker to long-running commands, giving it granular control over synchronous vs. asynchronous execution.
 
-3.  **File Reading Framework**:
-    *   A `<ReadFile>` tool exists and is processed in `internal/read_file.go`.
-    *   It includes important safeguards like file size limits, directory checks, and binary file detection.
-    *   The AI can now request reading multiple files by providing a space-separated list of paths in a single `<ReadFile>` tag.
+3.  **Efficient Multi-File Reading**:
+    *   The `<ReadFile>` tool can accept multiple, space-separated file paths in a single tag (e.g., `<ReadFile>file1.go file2.go</ReadFile>`).
+    *   The system performs a single batch confirmation for all requested files, rather than asking for each one individually, improving user experience.
+    *   Includes essential safeguards against reading directories, oversized files (`max_read_file_size`), and binary files.
 
-4.  **Chat History Persistence (User Input)**:
-    *   `internal/chat.go` shows that user command-line input history is persisted to `~/.config/tmuxai/history`. This provides a good user experience for recalling past commands.
+4.  **Automatic Context Management**:
+    *   The `squashHistory` feature (`internal/squash.go`) automatically summarizes long conversations when they approach the token limit, preventing errors during long-running tasks.
 
-5.  **Context Management**:
-    *   The `squashHistory` feature in `internal/squash.go` automatically manages context size, which is vital for long-running, complex orchestration tasks to prevent exceeding token limits.
+5.  **User Input History**:
+    *   User command-line input is persisted to a history file (`~/.config/tmuxai/history`), providing a standard readline experience.
 
-### What TmuxAI Needs (Gaps to Bridge)
+### What TmuxAI Needs
 
-1.  **Efficient Multi-File Reading**:
-    *   **Status: Implemented.** The `<ReadFile>` tool has been enhanced to accept multiple, space-separated file paths within a single tag (e.g., `<ReadFile>file1.go file2.go</ReadFile>`). This was achieved by updating `internal/process_response.go` to split the file paths from the tag's content.
-
-2.  **Persistent, Directory-Scoped Session History**:
-    *   **Problem**: The full conversation state (`m.Messages` in `internal/manager.go`) is currently stored in memory and is lost when `tmuxai` exits. This prevents the continuation of complex, multi-day coding tasks.
+1.  **Persistent, Directory-Scoped Session History**:
+    *   **Problem**: The full conversation state (`m.Messages`) is currently stored only in memory and is lost when `tmuxai` exits, preventing the continuation of complex tasks.
     *   **Required Change**: Implement a persistent session history mechanism.
-        *   **Storage**: When `tmuxai --agentic` is run, it will record the current working directory. The conversation history (`ChatMessage` slice) will be saved to a JSON file (e.g., `history.agentic.json`) inside a `.tmuxai_sessions` directory within that project's folder. This keeps session data alongside the project it belongs to.
-        *   **Session Management Command**: Introduce a new `/session` command.
-            *   When `tmuxai` starts in a directory with existing sessions, it will notify the user.
-            *   The `/session` command will allow the user to list and load a previous conversation, restoring the full context from all panes and also tmuxai chat.
-        *   **AI-Generated Titles**: After 3-4 conversational turns, `tmuxai` will use its underlying AI model to generate a concise, descriptive title for the session (e.g., "Refactoring the user authentication module"). This title will be stored with the session data and displayed when listing sessions. Short or inconclusive conversations will receive a default, timestamp-based title. The title will be updated as the session progresses.
-        *   **Automatic Save**: The session history will be saved automatically upon exiting `tmuxai` or if the tmux pane dies .. it will save on real time to avoid context loss.
+        *   **Storage**: When `tmuxai --agentic` is run, save the conversation history to a JSON file (e.g., `history.agentic.json`) inside a `.tmuxai_sessions` directory within the project's folder.
+        *   **Session Management**: Introduce a new `/session` command to list and load previous conversations, restoring the full context.
+        *   **AI-Generated Titles**: Use the AI to generate a concise, descriptive title for the session, to be displayed when listing sessions.
+        *   **Automatic Save**: Save the session automatically on exit or if the pane dies to avoid context loss.
 
-3.  **Pane-Context-Aware File Reading**:
-    *   **Decision**: This is no longer required. The current file reading logic, which resolves paths relative to `tmuxai`'s own working directory, is sufficient for the planned workflow, as the user will typically launch `tmuxai` from the project root.
+2.  **Deeper Aider Integration**:
+    *   **Goal**: The primary long-term goal is to enhance `tmuxai` to act as an intelligent orchestrator for `aider`.
+    *   **Workflow**: `tmuxai` would manage the high-level workflow (project comprehension, verification), while delegating file editing tasks to `aider`.
+    *   **Implementation**: This will require teaching `tmuxai` to construct and execute precise, non-interactive `aider` commands (e.g., `aider --yes --message "..." file1 file2`) and then run verification steps like builds or tests.
 

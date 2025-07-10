@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -342,20 +343,57 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		if !r.ExecPaneSeemsBusy && !r.NoComment {
 			m.Messages = append(m.Messages, currentMessage, responseMsg)
 		}
-		var fileContents []string
-		for _, readFile := range r.ReadFile {
-			m.Println(fmt.Sprintf("Reading file: %s", readFile.FilePath))
 
-			content, err := m.ProcessReadFile(readFile)
+		// 1. Validate all files first
+		type validFile struct {
+			Info    ReadFileInfo
+			OsInfo  os.FileInfo
+			AbsPath string
+		}
+		var filesToRead []validFile
+		var totalBytes int64
+		var fileListForPrompt []string
+
+		for _, fileInfo := range r.ReadFile {
+			osInfo, absPath, err := m.validateReadFile(fileInfo.FilePath)
 			if err != nil {
-				m.Println(fmt.Sprintf("Error reading file %s: %v", readFile.FilePath, err))
+				m.Println(fmt.Sprintf("Skipping file %s: %v", fileInfo.FilePath, err))
+				continue
+			}
+			filesToRead = append(filesToRead, validFile{Info: fileInfo, OsInfo: osInfo, AbsPath: absPath})
+			totalBytes += osInfo.Size()
+			fileListForPrompt = append(fileListForPrompt, fmt.Sprintf("%s (%d bytes)", fileInfo.FilePath, osInfo.Size()))
+		}
+
+		if len(filesToRead) == 0 {
+			m.Println("No valid files found to read.")
+			// Continue the loop, but don't re-process with new context as none was added.
+			return false
+		}
+
+		// 2. Ask for confirmation for the batch
+		if m.GetReadFileConfirm() {
+			prompt := fmt.Sprintf("Read %d file(s)? (%d bytes total)\n - %s", len(filesToRead), totalBytes, strings.Join(fileListForPrompt, "\n - "))
+			confirmed, _ := m.confirmedToExec("", prompt, false)
+			if !confirmed {
+				m.Println("File reading cancelled by user.")
+				return false
+			}
+		}
+
+		// 3. Read confirmed files and build content
+		var fileContents []string
+		for _, file := range filesToRead {
+			content, err := os.ReadFile(file.AbsPath)
+			if err != nil {
+				m.Println(fmt.Sprintf("Error reading file %s: %v", file.Info.FilePath, err))
 				continue
 			}
 
-			// Add file content to context for next AI response
-			fileHeader := fmt.Sprintf("\n--- File: %s ---\n", readFile.FilePath)
-			fileFooter := fmt.Sprintf("\n--- End of %s ---\n", readFile.FilePath)
-			fileContents = append(fileContents, fileHeader+content+fileFooter)
+			logger.Info("Read file: %s (%d bytes)", file.AbsPath, len(content))
+			fileHeader := fmt.Sprintf("\n--- File: %s ---\n", file.Info.FilePath)
+			fileFooter := fmt.Sprintf("\n--- End of %s ---\n", file.Info.FilePath)
+			fileContents = append(fileContents, fileHeader+string(content)+fileFooter)
 		}
 
 		// If we successfully read any files, add them to the conversation context
