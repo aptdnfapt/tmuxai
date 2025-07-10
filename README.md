@@ -171,32 +171,24 @@ TmuxAI operates by default in "observe mode". Here's how the interaction flow wo
 ## Prepare Mode
 
 ![Prepare Mode](https://tmuxai.dev/shots/demo-prepare.png?lastmode=1)
-_TmuxAI customized the pane prompt and sent the first ping command. Instead of the countdown, it's waiting for command completion_
+_TmuxAI sent the first ping command. Instead of the countdown, it's waiting for command completion_
 
-Prepare mode is an optional feature that enhances TmuxAI's ability to work with your terminal by customizing
-your shell prompt and tracking command execution with better precision. This
-enhancement eliminates the need for arbitrary wait intervals and provides the AI
-with more detailed information about your commands and their results.
+In its default "observe mode," TmuxAI uses a countdown timer after executing a command before checking the pane for output. **Prepare Mode** provides a more robust, synchronous execution flow that is compatible with any shell or custom prompt.
 
-When you enable Prepare Mode, TmuxAI will:
+When a pane is "prepared," TmuxAI will:
+- Append a special marker (`TMUXAI:EXITCODE:$?`) to every command sent to that pane.
+- Reliably wait for the command to finish by watching for this marker.
+- Capture the command's true exit code for better contextual awareness.
 
-1. **Detects your current shell** in the execution pane (supports bash, zsh, and fish)
-2. **Customizes your shell prompt** to include special markers that TmuxAI can recognize
-3. **Will track command execution history** including exit codes, and per-command outputs
-4. **Will detect command completion** instead of using fixed wait time intervals
+This eliminates the need for fixed wait intervals and provides the AI with more precise information about command results.
 
-To activate Prepare Mode, simply use:
+To toggle Prepare Mode for the primary exec pane, simply use:
 
 ```
 TmuxAI » /prepare
 ```
-
-**Prepared Fish Example:**
-
-```shell
-$ function fish_prompt; set -l s $status; printf '%s@%s:%s[%s][%d]» ' $USER (hostname -s) (prompt_pwd) (date +"%H:%M") $s; end
-username@hostname:~/r/tmuxai[21:05][0]»
-```
+To turn it off, use `/unprepare`. You can also target a specific pane with `/prepare [pane_id]`.
+(Note: This mode is not available when using Agentic Mode, as the AI manages synchronous execution itself.)
 
 ## Agentic Mode
 
@@ -320,7 +312,8 @@ TmuxAI » /squash
 | `/config`                   | View current configuration settings.                                                                    |
 | `/config set <key> <value>` | Override configuration for current session.                                                             |
 | `/squash`                   | Manually trigger context summarization.                                                                 |
-| `/prepare [pane_id]`        | Prepare a pane for advanced command execution. Defaults to the primary exec pane.                       |
+| `/prepare [pane_id]`        | Toggles a pane into 'prepared' mode for synchronous execution. Not available in agentic mode.           |
+| `/unprepare [pane_id]`      | Toggles 'prepared' mode off for a pane.                                                                 |
 | `/watch <description>`      | Enable Watch Mode with specified goal.                                                                  |
 | `/exit`                     | Exit TmuxAI.                                                                                            |
 

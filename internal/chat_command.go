@@ -14,7 +14,8 @@ const helpMessage = `Available commands:
 - /info: Display system information
 - /clear: Clear the chat history
 - /reset: Reset the chat history
-- /prepare [pane_id]: Prepare a pane for advanced command execution. Defaults to the primary exec pane.
+- /prepare [pane_id]: Toggles a pane into 'prepared' mode, where all AI commands will wait for completion. Not available in agentic mode.
+- /unprepare [pane_id]: Toggles a pane out of 'prepared' mode.
 - /watch <prompt>: Start watch mode
 - /squash: Summarize the chat history
 - /exit: Exit the application`
@@ -27,6 +28,7 @@ var commands = []string{
 	"/info",
 	"/watch",
 	"/prepare",
+	"/unprepare",
 	"/config",
 	"/squash",
 }
@@ -64,11 +66,14 @@ func (m *Manager) ProcessSubCommand(command string) {
 		return
 
 	case prefixMatch(commandPrefix, "/prepare"):
+		if m.GetAgenticMode() {
+			m.Println("Error: /prepare is not available in agentic mode. The AI manages command execution automatically.")
+			return
+		}
 		parts := strings.Fields(command)
 		var targetPane *system.TmuxPaneDetails
 
 		if len(parts) > 1 {
-			// User specified a pane ID, e.g., /prepare %1
 			paneID := parts[1]
 			panes, _ := m.GetTmuxPanes()
 			found := false
@@ -84,7 +89,6 @@ func (m *Manager) ProcessSubCommand(command string) {
 				return
 			}
 		} else {
-			// No pane ID specified, use the default exec pane
 			if m.ExecPane == nil || m.ExecPane.Id == "" {
 				m.InitExecPane()
 			}
@@ -97,18 +101,39 @@ func (m *Manager) ProcessSubCommand(command string) {
 		}
 
 		m.PreparePane(targetPane)
+		return
 
-		if targetPane.IsPrepared {
-			m.Println(fmt.Sprintf("Pane %s prepared successfully.", targetPane.Id))
+	case prefixMatch(commandPrefix, "/unprepare"):
+		parts := strings.Fields(command)
+		var targetPane *system.TmuxPaneDetails
+
+		if len(parts) > 1 {
+			paneID := parts[1]
+			panes, _ := m.GetTmuxPanes()
+			found := false
+			for i, p := range panes {
+				if p.Id == paneID {
+					targetPane = &panes[i]
+					found = true
+					break
+				}
+			}
+			if !found {
+				m.Println(fmt.Sprintf("Error: Pane with ID %s not found.", paneID))
+				return
+			}
+		} else {
+			if m.ExecPane == nil || m.ExecPane.Id == "" {
+				m.InitExecPane()
+			}
+			targetPane = m.ExecPane
 		}
-		fmt.Println(targetPane.String())
-		m.parseExecPaneCommandHistory(targetPane)
-
-		logger.Debug("Parsed exec history for pane %s:", targetPane.Id)
-		for _, history := range m.ExecHistory {
-			logger.Debug(fmt.Sprintf("Command: %s\nOutput: %s\nCode: %d\n", history.Command, history.Output, history.Code))
+		if targetPane == nil || targetPane.Id == "" {
+			m.Println("Error: Could not determine a target pane to unprepare.")
+			return
 		}
-
+		targetPane.IsPrepared = false
+		m.Println(fmt.Sprintf("Pane %s is no longer in prepared mode.", targetPane.Id))
 		return
 
 	case prefixMatch(commandPrefix, "/clear"):

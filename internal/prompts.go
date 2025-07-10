@@ -60,21 +60,28 @@ IMPORTANT: When targeting a specific pane, use the exact pane ID shown in the pa
 
 You have access to the following XML tags to control the tmux panes:
 
-<ExecCommand pane_id="%1">: Use this to execute shell commands in a specific tmux pane. If pane_id is omitted, the command runs in the primary exec pane.
+<ExecCommand pane_id="%1">: Use this to execute shell commands. You MUST decide whether to wait for the command to finish.
+To wait for a command (for long-running tasks like compiling, testing, or system updates), append '; echo "TMUXAI:EXITCODE:$?"' to your command string. TmuxAI will wait for this exact marker.
+To run a command without waiting (for quick, simple commands like 'ls', 'pwd'), just send the command by itself.
+
 <TmuxSendKeys pane_id="%1">: Use this to send keystrokes to a specific tmux pane. If pane_id is omitted, sends to primary exec pane.
 <PasteMultilineContent pane_id="%1">: Use this to paste multiline content into a specific tmux pane. If pane_id is omitted, pastes to primary exec pane.
 <ReadFile pane_id="%1">: Use this to read file content silently without terminal output. File content will be available for your analysis. If pane_id is omitted, reads in primary exec pane context.
 <CreateExecPane>: Use this boolean tag (value 1) to create a new horizontal split pane for execution. The new pane will become the primary exec pane.
 <WaitingForUserResponse>: Use this boolean tag (value 1) when you have a question, need input or clarification from the user to accomplish the request.
 <RequestAccomplished>: Use this boolean tag (value 1) when you have successfully completed and verified the user's request.
-<ExecPaneSeemsBusy>: Use this boolean tag (value 1) when you need to wait for a command to finish before proceeding.
 
-EXAMPLES OF PANE TARGETING:
-- <ExecCommand>ls -la</ExecCommand> - Runs in primary exec pane
-- <ExecCommand pane_id="%64">go build .</ExecCommand> - Runs in specific pane %64
-- <TmuxSendKeys pane_id="%63">/add main.go</TmuxSendKeys> - Sends keys to pane %63
-- <ReadFile>main.go</ReadFile> - Read file content silently (preferred over cat)
-- <ReadFile pane_id="%64">config.yaml</ReadFile> - Read file in specific pane context
+EXAMPLES OF EXECUTION STRATEGY:
+WAITING for a system update:
+  <ExecCommand>sudo apt update && sudo apt upgrade -y; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+WAITING for a build to finish:
+  <ExecCommand pane_id="%64">go build .; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+NOT WAITING for a simple listing:
+  <ExecCommand>ls -la</ExecCommand>
+Sending keys to another pane:
+  <TmuxSendKeys pane_id="%63">/add main.go</TmuxSendKeys>
+Reading a file silently:
+  <ReadFile>main.go</ReadFile>
 `)
 
 	builder.WriteString(`
@@ -113,7 +120,7 @@ func (m *Manager) chatAssistantPrompt(prepared bool) ChatMessage {
 Your primary function is to assist users by interpreting their requests and executing appropriate actions.
 You have access to the following XML tags to control the tmux pane:
 
-<ExecCommand>: Use this to execute shell commands in the exec pane.
+<ExecCommand>: Use this to execute shell commands in the exec pane. If the pane is prepared (via /prepare), TmuxAI will wait for completion. Otherwise, it will not wait.
 <TmuxSendKeys>: Use this to send keystrokes to the tmux pane.
 <PasteMultilineContent>: Use this to send multiline content into the tmux pane.
 <ReadFile>: Use this to read file content silently without terminal output. File content will be available for your analysis.
@@ -122,7 +129,7 @@ You have access to the following XML tags to control the tmux pane:
 `)
 
 	if !prepared {
-		builder.WriteString(`<ExecPaneSeemsBusy>: Use this boolean tag (value 1) when you need to wait for the exec pane to finish before proceeding.`)
+		builder.WriteString(`<ExecPaneSeemsBusy>: Use this boolean tag (value 1) when you need to wait for the exec pane to finish before proceeding. This is only used for unprepared panes.`)
 	}
 
 	builder.WriteString(`
@@ -193,17 +200,6 @@ I'll read the README file to understand the project.
 <ReadFile>README.md</ReadFile>
 </reading_a_file>
 `)
-
-	if prepared {
-		builder.WriteString(`
-<waiting_for_a_command_to_finish>
-Based on the pane content, seems like ping is still running.
-I'll wait for it to complete before proceeding.
-<ExecPaneSeemsBusy>1</ExecPaneSeemsBusy>
-</waiting_for_a_command_to_finish>
-`)
-	}
-
 	builder.WriteString(`</examples_of_responses>`)
 
 	// Custom additional prompt

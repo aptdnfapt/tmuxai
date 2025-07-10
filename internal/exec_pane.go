@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"bufio"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -48,31 +47,14 @@ func (m *Manager) CreateNewExecPane() {
 
 func (m *Manager) PreparePane(targetPane *system.TmuxPaneDetails) {
 	targetPane.Refresh(m.GetMaxCaptureLines())
-	if targetPane.IsPrepared && targetPane.Shell != "" {
-		// Already prepared
+	if targetPane.IsPrepared {
+		m.Println(fmt.Sprintf("Pane %s is already prepared.", targetPane.Id))
 		return
 	}
 
-	shellCommand := targetPane.CurrentCommand
-	var ps1Command string
-	switch shellCommand {
-	case "zsh":
-		ps1Command = `export PROMPT='%n@%m:%~[%T][%?]» '`
-	case "bash":
-		ps1Command = `export PS1='\u@\h:\w[\A][$?]» '`
-	case "fish":
-		ps1Command = `function fish_prompt; set -l s $status; printf '%s@%s:%s[%s][%d]» ' $USER (hostname -s) (prompt_pwd) (date +"%H:%M") $s; end`
-	default:
-		errMsg := fmt.Sprintf("Shell '%s' in pane %s is recognized but not yet supported for PS1 modification.", shellCommand, targetPane.Id)
-		m.Println(errMsg)
-		logger.Info(errMsg)
-		return
-	}
-
-	system.TmuxSendCommandToPane(targetPane.Id, ps1Command, true)
-	system.TmuxSendCommandToPane(targetPane.Id, "C-l", false)
-	// Refresh again to update the IsPrepared status
-	targetPane.Refresh(m.GetMaxCaptureLines())
+	// This now simply flags the pane for marker-based execution. No more prompt injection.
+	targetPane.IsPrepared = true
+	m.Println(fmt.Sprintf("Pane %s is now prepared for synchronous command execution.", targetPane.Id))
 }
 
 func (m *Manager) PrepareExecPane() {
@@ -83,124 +65,58 @@ func (m *Manager) PrepareExecPane() {
 	m.PreparePane(m.ExecPane)
 }
 
-func (m *Manager) ExecWaitCapture(command string, targetPane *system.TmuxPaneDetails) (CommandExecHistory, error) {
-	system.TmuxSendCommandToPane(targetPane.Id, command, true)
-	targetPane.Refresh(m.GetMaxCaptureLines())
+func (m *Manager) ExecWaitCapture(targetPane *system.TmuxPaneDetails) (CommandExecHistory, error) {
+	const endMarker = "TMUXAI:EXITCODE"
+	// This regex ensures we match the marker only when it appears on its own line,
+	// preventing a match on the command prompt itself.
+	re := regexp.MustCompile(`^` + endMarker + `:(-?\d+)$`)
 
-	m.Println("")
+	m.Println("") // Newline for the animation
 
 	animChars := []string{"⋯", "⋱", "⋮", "⋰"}
 	animIndex := 0
-	for !strings.HasSuffix(targetPane.LastLine, "]»") && m.Status != "" {
+	for m.Status != "" {
 		fmt.Printf("\r%s%s ", m.GetPrompt(), animChars[animIndex])
 		animIndex = (animIndex + 1) % len(animChars)
 		time.Sleep(500 * time.Millisecond)
 		targetPane.Refresh(m.GetMaxCaptureLines())
-	}
-	fmt.Print("\r\033[K")
 
-	m.parseExecPaneCommandHistory(targetPane)
-	cmd := m.ExecHistory[len(m.ExecHistory)-1]
-	logger.Debug("Command: %s\nOutput: %s\nCode: %d\n", cmd.Command, cmd.Output, cmd.Code)
-	return cmd, nil
-}
+		// Scan from the bottom of the content for the marker for efficiency
+		lines := strings.Split(targetPane.Content, "\n")
+		for i := len(lines) - 1; i >= 0; i-- {
+			trimmedLine := strings.TrimSpace(lines[i])
+			if re.MatchString(trimmedLine) {
+				fmt.Print("\r\033[K") // Clear animation line
 
-func (m *Manager) parseExecPaneCommandHistory(targetPane *system.TmuxPaneDetails) {
-	targetPane.Refresh(m.GetMaxCaptureLines())
-
-	var history []CommandExecHistory
-
-	var currentCommand *CommandExecHistory
-	var outputBuilder strings.Builder
-
-	// Regex: Capture status code (group 1), optionally capture command (group 2)
-	// Making the command part optional handles prompts that only show status (like the last line).
-	// ` ?` allows zero or one space after »
-	promptRegex := regexp.MustCompile(`.*\[(\d+)\]» ?(.*)$`)
-
-	scanner := bufio.NewScanner(strings.NewReader(targetPane.Content))
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		match := promptRegex.FindStringSubmatch(line)
-
-		if match != nil && len(match) >= 2 { // We need at least the status code match[1]
-			// --- Found a prompt line ---
-			// This prompt line *terminates* the previous command block
-			// and provides its status code. It might also start a new command block.
-
-			statusCodeStr := match[1]
-			commandStr := "" // Default if only status code found (like the last line)
-			if len(match) > 2 {
-				commandStr = strings.TrimSpace(match[2]) // Command for the *next* block
-			}
-
-			// 1. Finalize the PREVIOUS command block (if one was active)
-			if currentCommand != nil {
-				// Parse the status code found on *this* line - it belongs to the *previous* command
-				statusCode, err := strconv.Atoi(statusCodeStr)
-				if err != nil {
-					// This shouldn't happen with \d+ regex but check anyway
-					fmt.Printf("Warning: Could not parse status code '%s' for previous command on line: %s\n", statusCodeStr, line)
-					currentCommand.Code = -1 // Indicate parsing error
-				} else {
-					currentCommand.Code = statusCode // Assign correct status
+				// Parse exit code from the marker line. Handles negative codes.
+				matches := re.FindStringSubmatch(trimmedLine)
+				code := -1 // Default code if parsing fails
+				if len(matches) > 1 {
+					parsedCode, err := strconv.Atoi(matches[1])
+					if err == nil {
+						code = parsedCode
+					}
 				}
 
-				// Assign collected output
-				currentCommand.Output = strings.TrimSuffix(outputBuilder.String(), "\n")
-
-				// Add the completed previous command block to results
-				history = append(history, *currentCommand)
-
-				// Reset for the next block
-				outputBuilder.Reset()
-				currentCommand = nil // Mark as no active command temporarily
-			} else {
-				// Optional: Handle status code on the very first prompt if needed.
-				// Currently, the status on the first prompt is ignored as there's
-				// no *previous* command within the parsed text to assign it to.
-			}
-
-			// 2. If this prompt line ALSO contains a command, start the NEW block
-			if commandStr != "" {
-				currentCommand = &CommandExecHistory{
-					Command: commandStr,
-					Code:    -1, // Default/Unknown: Status code is determined by the *next* prompt
-					// Output will be collected in outputBuilder starting from the next line
+				// The output is everything *before* the marker line in the pane.
+				// We reconstruct the content without the marker line.
+				var outputBuilder strings.Builder
+				for j, contentLine := range lines {
+					if i == j { // This is the marker line, skip it
+						continue
+					}
+					outputBuilder.WriteString(contentLine)
+					outputBuilder.WriteString("\n")
 				}
-			} else {
-				// This prompt line only indicates the end status of the previous command
-				// (like the final "[i] [~/r/tmuxai][16:56][2]»" line).
-				// No new command starts here, so currentCommand remains nil.
-			}
 
-		} else {
-			// --- Not a prompt line - Must be output ---
-			if currentCommand != nil {
-				// Append this line as output to the currently active command
-				outputBuilder.WriteString(line)
-				outputBuilder.WriteString("\n") // Preserve line breaks
+				return CommandExecHistory{
+					Output: strings.TrimSpace(outputBuilder.String()),
+					Code:   code,
+				}, nil
 			}
-			// Ignore lines before the first *actual* command starts
-			// (i.e., before the first prompt line that contains a command string)
 		}
 	}
 
-	// --- After the loop ---
-	// Handle the case where the input ends with output lines for the last command,
-	// but without a final terminating prompt line.
-	if currentCommand != nil {
-		currentCommand.Output = strings.TrimSuffix(outputBuilder.String(), "\n")
-		// Status code remains the default (-1) because the log ended before the next prompt
-		// could provide the exit status.
-		history = append(history, *currentCommand)
-	}
-
-	if err := scanner.Err(); err != nil {
-		logger.Error("error reading input: %v", err)
-	}
-
-	// Update the manager's command history
-	m.ExecHistory = history
+	fmt.Print("\r\033[K") // Clear animation on exit
+	return CommandExecHistory{}, fmt.Errorf("operation cancelled")
 }
