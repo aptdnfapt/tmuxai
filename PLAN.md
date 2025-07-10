@@ -49,7 +49,7 @@ workspace.
 3.  **File Reading Framework**:
     *   A `<ReadFile>` tool exists and is processed in `internal/read_file.go`.
     *   It includes important safeguards like file size limits, directory checks, and binary file detection.
-    *   The AI can already request reading multiple files by emitting multiple `<ReadFile>` tags in a single response, which `internal/process_message.go` will loop through.
+    *   The AI can now request reading multiple files by providing a space-separated list of paths in a single `<ReadFile>` tag.
 
 4.  **Chat History Persistence (User Input)**:
     *   `internal/chat.go` shows that user command-line input history is persisted to `~/.config/tmuxai/history`. This provides a good user experience for recalling past commands.
@@ -60,8 +60,7 @@ workspace.
 ### What TmuxAI Needs (Gaps to Bridge)
 
 1.  **Efficient Multi-File Reading**:
-    *   **Problem**: While the AI can emit multiple `<ReadFile>` tags, this can be verbose. A more streamlined method for ingesting project context is needed.
-    *   **Required Change**: Enhance the `<ReadFile>` tool to accept multiple, space-separated file paths within a single tag (e.g., `<ReadFile>file1.go file2.go internal/utils.go</ReadFile>`). This will require updating `internal/process_response.go` to parse the paths and `internal/read_file.go` to process them in a loop. A configuration option can be added to toggle this multi-file behavior from yaml .
+    *   **Status: Implemented.** The `<ReadFile>` tool has been enhanced to accept multiple, space-separated file paths within a single tag (e.g., `<ReadFile>file1.go file2.go</ReadFile>`). This was achieved by updating `internal/process_response.go` to split the file paths from the tag's content.
 
 2.  **Persistent, Directory-Scoped Session History**:
     *   **Problem**: The full conversation state (`m.Messages` in `internal/manager.go`) is currently stored in memory and is lost when `tmuxai` exits. This prevents the continuation of complex, multi-day coding tasks.
