@@ -61,7 +61,7 @@ IMPORTANT: When targeting a specific pane, use the exact pane ID shown in the pa
 You have access to the following XML tags to control the tmux panes:
 
 <ExecCommand pane_id="%1">: Use this to execute shell commands. You MUST decide whether to wait for the command to finish.
-To wait for a command (for long-running tasks like compiling, testing, or system updates), append '; echo "TMUXAI:EXITCODE:$?"' to your command string. TmuxAI will wait for this exact marker.
+To wait for a command (for long-running tasks like compiling, testing, or system updates), append '; echo "TMUXAI:EXITCODE:$?"' to your command string (or '; echo "TMUXAI:EXITCODE:$status"' for fish shell). TmuxAI will wait for this exact marker.
 To run a command without waiting (for quick, simple commands like 'ls', 'pwd'), just send the command by itself.
 
 <TmuxSendKeys pane_id="%1">: Use this to send keystrokes to a specific tmux pane. If pane_id is omitted, sends to primary exec pane.

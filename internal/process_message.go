@@ -201,7 +201,12 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 				}
 			} else { // Normal mode: check if the pane is prepared.
 				if targetPane.IsPrepared {
-					markerCommand := fmt.Sprintf(`; echo "%s:$?"`, endMarker)
+					var markerCommand string
+					if targetPane.Shell == "fish" {
+						markerCommand = fmt.Sprintf(`; echo "%s:$status"`, endMarker)
+					} else {
+						markerCommand = fmt.Sprintf(`; echo "%s:$?"`, endMarker)
+					}
 					commandToRun += markerCommand
 					shouldWait = true
 				}
@@ -373,8 +378,14 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 		// 2. Ask for confirmation for the batch
 		if m.GetReadFileConfirm() {
-			prompt := fmt.Sprintf("Read %d file(s)? (%d bytes total)\n - %s", len(filesToRead), totalBytes, strings.Join(fileListForPrompt, "\n - "))
-			confirmed, _ := m.confirmedToExec("", prompt, false)
+			// Print the file list separately to avoid issues with multiline prompts in readline.
+			fmt.Printf("Read %d file(s)? (%d bytes total)\n", len(filesToRead), totalBytes)
+			for _, fileLine := range fileListForPrompt {
+				fmt.Printf(" - %s\n", fileLine)
+			}
+
+			// Now, ask for confirmation with a simple, single-line prompt.
+			confirmed, _ := m.confirmedToExec("", "Read files?", false)
 			if !confirmed {
 				m.Println("File reading cancelled by user.")
 				return false

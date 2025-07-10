@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,6 +92,7 @@ func isTextFile(filePath string) bool {
 	textFiles := []string{
 		"readme", "license", "changelog", "makefile", "dockerfile", "gemfile", "rakefile",
 		"procfile", "vagrantfile", "gruntfile", "gulpfile", "webpack", "package", "composer",
+		"go.mod", "go.sum",
 	}
 	
 	for _, textFile := range textFiles {
@@ -99,29 +101,26 @@ func isTextFile(filePath string) bool {
 		}
 	}
 	
-	// If no extension and not a known text file, do a quick binary check
-	if ext == "" {
-		file, err := os.Open(filePath)
-		if err != nil {
-			return false
-		}
-		defer file.Close()
-		
-		// Read first 512 bytes to check for null bytes
-		buffer := make([]byte, 512)
-		n, err := file.Read(buffer)
-		if err != nil && n == 0 {
-			return false
-		}
-		
-		// If we find null bytes, it's likely binary
-		for i := 0; i < n; i++ {
-			if buffer[i] == 0 {
-				return false
-			}
-		}
-		return true
+	// Fallback to content check for files not matching known text extensions/names
+	file, err := os.Open(filePath)
+	if err != nil {
+		return false // Cannot open, assume not text
 	}
-	
-	return false
+	defer file.Close()
+
+	// Read first 512 bytes to check for null bytes
+	buffer := make([]byte, 512)
+	n, err := file.Read(buffer)
+	if err != nil && err != io.EOF {
+		return false // An actual read error occurred
+	}
+
+	// Check for null bytes which indicate a binary file
+	for i := 0; i < n; i++ {
+		if buffer[i] == 0 {
+			return false
+		}
+	}
+
+	return true // No null bytes found, assume it's a text file
 }
