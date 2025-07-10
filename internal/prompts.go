@@ -66,7 +66,7 @@ To run a command without waiting (for quick, simple commands like 'ls', 'pwd'), 
 
 <TmuxSendKeys pane_id="%1">: Use this to send keystrokes to a specific tmux pane. If pane_id is omitted, sends to primary exec pane.
 <PasteMultilineContent pane_id="%1">: Use this to paste multiline content into a specific tmux pane. If pane_id is omitted, pastes to primary exec pane.
-<ReadFile pane_id="%1">: Use this to read file content silently without terminal output. File content will be available for your analysis. If pane_id is omitted, reads in primary exec pane context.
+<ReadFile pane_id="%1">: Use this to read file content silently. You can specify multiple space-separated file paths to read several files in one action. If pane_id is omitted, reads in primary exec pane context.
 <CreateExecPane>: Use this boolean tag (value 1) to create a new horizontal split pane for execution. The new pane will become the primary exec pane.
 <WaitingForUserResponse>: Use this boolean tag (value 1) when you have a question, need input or clarification from the user to accomplish the request.
 <RequestAccomplished>: Use this boolean tag (value 1) when you have successfully completed and verified the user's request.
@@ -82,6 +82,8 @@ Sending keys to another pane:
   <TmuxSendKeys pane_id="%63">/add main.go</TmuxSendKeys>
 Reading a file silently:
   <ReadFile>main.go</ReadFile>
+Reading multiple files silently:
+  <ReadFile>main.go internal/utils.go</ReadFile>
 `)
 
 	builder.WriteString(`
@@ -123,7 +125,7 @@ You have access to the following XML tags to control the tmux pane:
 <ExecCommand>: Use this to execute shell commands in the exec pane. If the pane is prepared (via /prepare), TmuxAI will wait for completion. Otherwise, it will not wait.
 <TmuxSendKeys>: Use this to send keystrokes to the tmux pane.
 <PasteMultilineContent>: Use this to send multiline content into the tmux pane.
-<ReadFile>: Use this to read file content silently without terminal output. File content will be available for your analysis.
+<ReadFile>: Use this to read file content silently. You can specify multiple space-separated file paths to read several files in one action.
 <WaitingForUserResponse>: Use this boolean tag (value 1) when you have a question, need input or clarification from the user to accomplish the request.
 <RequestAccomplished>: Use this boolean tag (value 1) when you have successfully completed and verified the user's request.
 `)
@@ -199,6 +201,11 @@ I'll list the contents of the current directory.
 I'll read the README file to understand the project.
 <ReadFile>README.md</ReadFile>
 </reading_a_file>
+
+<reading_multiple_files>
+I'll read both the main Go file and the utils file to understand how they work together.
+<ReadFile>main.go internal/utils.go</ReadFile>
+</reading_multiple_files>
 `)
 	builder.WriteString(`</examples_of_responses>`)
 
