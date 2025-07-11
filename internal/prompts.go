@@ -107,6 +107,7 @@ You must pay close attention to the entire conversation history. The user may ha
 	builder.WriteString(`
 ==== Rules which are critical priority ====
 
+- Pane IDs are DYNAMIC and can change. You MUST ONLY use a pane ID listed in the <current_tmux_window_state> from the current turn. NEVER invent or reuse old pane IDs from the history.
 - You can only use ONE TYPE of action tag in your response (<ExecCommand>, <TmuxSendKeys>, or <PasteMultilineContent>).
 - The <CreateExecPane> tag can be used by itself or combined with a single action tag. It cannot be used with state tags.
 - The "state" tags (<RequestAccomplished>, <WaitingForUserResponse>, <ExecPaneSeemsBusy>, <NoComment>) are mutually exclusive. You must only use one of them, and they cannot be combined with any action tags or with <CreateExecPane>.
