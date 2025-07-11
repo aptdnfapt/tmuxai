@@ -344,6 +344,11 @@ The configuration can be managed through a YAML file, environment variables, or 
 TmuxAI looks for its configuration file at `~/.config/tmuxai/config.yaml`.
 For a sample configuration file, see [config.example.yaml](https://github.com/alvinunreal/tmuxai/blob/main/config.example.yaml).
 
+A few key settings include:
+- `agentic_mode`: Enables the AI to interact with all panes in your window.
+- `max_capture_lines`: Controls how much scrollback history from each pane is sent to the AI as context with every message. This provides the AI with a "view" of your current screen state.
+- `openrouter.model`: Specifies which AI model to use.
+
 ### Environment Variables
 
 All configuration options can also be set via environment variables, which take precedence over the config file. Use the prefix `TMUXAI_` followed by the uppercase configuration key:

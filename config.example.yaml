@@ -1,5 +1,5 @@
 max_context_size: 20000 # Maximum context size in tokens, reaching 80% triggers squashing
-max_capture_lines: 200 # Maximum number of lines to capture during each message
+max_capture_lines: 200 # Max lines of pane content (scrollback) to send to the AI as context with each message.
 wait_interval: 5 # Wait interval when exec pane is considered busy (used in observe and watch modes)
 
 agentic_mode: false # Set to true to enable multi-pane command execution and creation
