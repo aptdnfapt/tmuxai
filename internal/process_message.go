@@ -140,11 +140,9 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 			panes, _ := m.GetTmuxPanes()
 			found := false
 
-			// Normalize the pane ID from the AI, which might be missing the '%' prefix.
-			normalizedPaneID := execCommand.PaneID
-			if !strings.HasPrefix(normalizedPaneID, "%") {
-				normalizedPaneID = "%" + normalizedPaneID
-			}
+			// Normalize the pane ID from the AI, which might be missing or have extra '%' prefixes.
+			// This handles cases like '%2', '%%2', or just '2'.
+			normalizedPaneID := "%" + strings.TrimLeft(execCommand.PaneID, "%")
 
 			for i, p := range panes {
 				if p.Id == normalizedPaneID { // Compare against the normalized ID
@@ -264,11 +262,9 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		for _, paneID := range paneOrder {
 			keys := keysByPane[paneID]
 
-			// Normalize the pane ID from the AI before using it.
-			normalizedPaneID := paneID
-			if !strings.HasPrefix(normalizedPaneID, "%") {
-				normalizedPaneID = "%" + normalizedPaneID
-			}
+			// Normalize the pane ID from the AI, which might have extra '%' prefixes.
+			// This handles cases like '%2' or '%%2'.
+			normalizedPaneID := "%" + strings.TrimLeft(paneID, "%")
 
 			keysPreview := fmt.Sprintf("Keys to send to pane %s:\n", paneID)
 			for i, key := range keys {
@@ -316,10 +312,8 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 			}
 
 			// Normalize the pane ID from the AI before using it.
-			normalizedPaneID := targetPaneID
-			if !strings.HasPrefix(normalizedPaneID, "%") {
-				normalizedPaneID = "%" + normalizedPaneID
-			}
+			// This handles cases like '%2' or '%%2'.
+			normalizedPaneID := "%" + strings.TrimLeft(targetPaneID, "%")
 
 			code, _ := system.HighlightCode("txt", pc.Content)
 			m.Println(fmt.Sprintf("Content to paste into pane %s:", targetPaneID))
