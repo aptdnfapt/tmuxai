@@ -30,13 +30,15 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		return false
 	}
 
+	repoMapContext := m.getRepoMapContext()
+
 	currentTmuxWindow := m.GetTmuxPanesInXml(m.Config)
 	execPaneEnv := ""
 	if !m.ExecPane.IsSubShell {
 		execPaneEnv = fmt.Sprintf("Keep in mind, you are working within the shell: %s and OS: %s", m.ExecPane.Shell, m.ExecPane.OS)
 	}
 	currentMessage := ChatMessage{
-		Content:   currentTmuxWindow + "\n\n" + execPaneEnv + "\n\n" + message,
+		Content:   repoMapContext + currentTmuxWindow + "\n\n" + execPaneEnv + "\n\n" + message,
 		FromUser:  true,
 		Timestamp: time.Now(),
 	}

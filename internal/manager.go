@@ -28,6 +28,7 @@ type Manager struct {
 	LastExecPaneID   string
 	SessionPath      string
 	isRestore        bool
+	RepoMap          *RepoMapHandler
 }
 
 // NewManager creates a new manager agent
@@ -74,6 +75,11 @@ func NewManager(cfg *config.Config, isRestore bool) (*Manager, error) {
 		isRestore:        isRestore,
 	}
 
+	// Initialize RepoMap if in agentic mode
+	if manager.GetAgenticMode() {
+		manager.RepoMap = NewRepoMapHandler()
+	}
+
 	// Session loading logic
 	if manager.isRestore {
 		latestSession, err := findLatestSession()
@@ -90,6 +96,24 @@ func NewManager(cfg *config.Config, isRestore bool) (*Manager, error) {
 
 	manager.InitExecPane()
 	return manager, nil
+}
+
+func (m *Manager) getRepoMapContext() string {
+	if m.RepoMap == nil || !m.RepoMap.IsEnabled() {
+		return ""
+	}
+
+	repoMap, err := m.RepoMap.GetMap()
+	if err != nil {
+		m.Println(fmt.Sprintf("Warning: Could not generate repo map: %v", err))
+		return ""
+	}
+
+	if repoMap != "" {
+		return "\n" + repoMap + "\n"
+	}
+
+	return ""
 }
 
 // Start starts the manager agent
