@@ -35,7 +35,7 @@ build context efficiently.
 This section outlines the key features and changes required to evolve `tmuxai` into a powerful orchestrator for `aider`.
 ### 0 : THE GOAL OF THE PORJECT IS TO GIVE TMUXAI ENOUGH TOOLS SO THAT IT CAN SUPPORT MY WORKFLOW BUT NOT TO HARDCODE ANY AIDER OR AIDER RELATED STUFF INSIDE TMUXAI. TMXUAI IS A STAND ALONE PROJECT OF ITS OWN . WHICH GOING TO HOLD TOOLS POWERFUL ENOGH THAT USING THE AIDER-AGENTITC MD FILE ON THE AGETIC SYSTHEM PROMPT OF THE YAML WE SHOULD BE ABLE TO ACHIVE THE COMBINE POWER . TMUXAI AND AIDER WILL UNITE ON THE CONFIG YAML SYSTHEM PROPMPT AND MAKE SURE TO UNDERSTAND THEY CAN ALSO USE THIS TOOLS AS A STAND ALONE  PROGRAM OF ITS OWN.
 
-### 1. Transient File Context ("Fresh Read" Strategy)
+### 1. Transient File Context ("Fresh Read" Strategy) ✅ **DONE**
 
 - **Problem**: Reading files adds their full content to the permanent chat history, which is inefficient and leads to stale context.
 - **Solution**: Adopt `aider`'s "fresh read" approach.
@@ -43,7 +43,7 @@ This section outlines the key features and changes required to evolve `tmuxai` i
     - File content will **not** be appended to the persistent chat history (`m.Messages`).
     - This ensures the AI always works with the latest version of a file from disk and keeps the long-term history lean and relevant.
 
-### 2. Persistent, Project-Scoped Session Management
+### 2. Persistent, Project-Scoped Session Management ✅ **DONE**
 
 - **Problem**: Conversation history is lost on exit, preventing the continuation of complex tasks.
 - **Solution**: Implement a robust session management system.
@@ -76,7 +76,7 @@ This section outlines the key features and changes required to evolve `tmuxai` i
     and reformating the designs using bubbles (last goal avoid for now )
   
 
-### 5. Refined Aider Integration
+### 5. Refined Aider Integration with aider agentic md file . 
 
 - **Goal**: Solidify `tmuxai`'s role as the orchestrator and `aider` as the file editor.
 - **Workflow**:
@@ -84,6 +84,50 @@ This section outlines the key features and changes required to evolve `tmuxai` i
     2.  It delegates specific file creation and modification tasks to `aider` by constructing precise, non-interactive `aider` commands.
     3.  After `aider` completes an edit, `tmuxai` takes over to run verification steps (builds, tests, linters).
     4.  This creates a clean separation of concerns: `tmuxai` for strategy, `aider` for execution.
+
+### 6. Future Vision: Native Tool Calling (Long-Term--dont bother with it right now )
+
+- **Problem**: The current tool-calling mechanism relies on parsing XML tags from the AI's text response. This is brittle and can lead to model "hallucinations" (e.g., inventing pane IDs) or formatting errors that break the parsing logic. It's also less efficient than using the native tool-calling features provided by modern AI APIs.
+- **Goal**: Transition from the current text-parsing method to a robust, native tool-calling framework. This will improve reliability, reduce errors, and align `tmuxai` with modern AI development best practices. The key challenge is that different AI providers (OpenAI, Google, Anthropic) have different, incompatible native tool-calling APIs.
+- **Solution**: Implement a provider-agnostic architecture using a strategy pattern. Instead of creating multiple binaries, we will have a single binary that can switch between different provider implementations at runtime based on the user's configuration.
+
+#### Implementation Steps:
+
+1.  **Define a Provider Interface**: Create a new `AIProvider` interface in Go. This interface will define a standard method for handling chat completions and tool calls, abstracting away the specifics of each provider's API.
+    ```go
+    // Example interface
+    type ToolCall struct {
+        Name      string
+        Arguments map[string]interface{}
+    }
+
+    type AIProvider interface {
+        GetToolResponse(ctx context.Context, messages []ChatMessage, tools []ToolDefinition) ([]ToolCall, string, error)
+    }
+    ```
+
+2.  **Refactor `AiClient`**: Modify `internal/ai_client.go` to act as a factory or manager that holds the currently active `AIProvider` implementation based on the user's configuration.
+
+3.  **Create Provider Implementations**:
+    *   **`OpenAICompatibleTextProvider`**: This will be the default implementation. It will encapsulate the *current* XML-in-prompt logic. This ensures full backward compatibility and continued support for any OpenAI-compatible endpoint that doesn't support a specific native tool-calling format.
+    *   **`GeminiNativeProvider`**: A new implementation that specifically targets the Google Gemini API. It will format requests and parse responses according to Gemini's native tool-calling JSON structure.
+    *   **Future Providers**: This architecture makes it easy to add more native providers in the future (e.g., `AnthropicNativeProvider`) without disrupting existing ones.
+
+4.  **Update Configuration**: Enhance `config.yaml` to allow users to select their desired provider strategy.
+    ```yaml
+    # Example config.yaml addition
+    openrouter:
+      api_key: "..."
+      model: "..."
+      base_url: "..."
+      # New setting to choose the strategy
+      # options: "text_xml" (default), "gemini_native", "anthropic_native"
+      provider_strategy: "text_xml"
+    ```
+
+5.  **Adapt Response Processing**: Update `internal/process_message.go` to handle the structured `ToolCall` objects returned by the `AIProvider` interface, instead of relying on `parseAIResponse` to extract tools from a string. The text-parsing logic will only be used when the `OpenAICompatibleTextProvider` is active.
+
+This approach provides a clear path to adopting more reliable native tool-calling features while maintaining the flexibility and broad provider support that `tmuxai` currently offers.
 
 
 
