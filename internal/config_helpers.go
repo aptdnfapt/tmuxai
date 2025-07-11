@@ -15,6 +15,8 @@ var AllowedConfigKeys = []string{
 	"send_keys_confirm",
 	"paste_multiline_confirm",
 	"exec_confirm",
+	"read_file_confirm",
+	"multi_file_read",
 	"openrouter.model",
 }
 
@@ -73,6 +75,15 @@ func (m *Manager) GetExecConfirm() bool {
 		}
 	}
 	return m.Config.ExecConfirm
+}
+
+func (m *Manager) GetMultiFileRead() bool {
+	if override, exists := m.SessionOverrides["multi_file_read"]; exists {
+		if val, ok := override.(bool); ok {
+			return val
+		}
+	}
+	return m.Config.MultiFileRead
 }
 
 func (m *Manager) GetOpenRouterModel() string {

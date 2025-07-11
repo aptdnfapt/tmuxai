@@ -22,6 +22,7 @@ type Config struct {
 	PasteMultilineConfirm bool             `mapstructure:"paste_multiline_confirm"`
 	ExecConfirm           bool             `mapstructure:"exec_confirm"`
 	ReadFileConfirm       bool             `mapstructure:"read_file_confirm"`
+	MultiFileRead         bool             `mapstructure:"multi_file_read"`
 	MaxReadFileSize       int              `mapstructure:"max_read_file_size"`
 	WhitelistPatterns     []string         `mapstructure:"whitelist_patterns"`
 	BlacklistPatterns     []string         `mapstructure:"blacklist_patterns"`
@@ -58,6 +59,7 @@ func DefaultConfig() *Config {
 		PasteMultilineConfirm: true,
 		ExecConfirm:           true,
 		ReadFileConfirm:       true,
+		MultiFileRead:         false,
 		MaxReadFileSize:       250000, // 250KB default limit
 		WhitelistPatterns:     []string{},
 		BlacklistPatterns:     []string{},

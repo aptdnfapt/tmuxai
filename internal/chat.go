@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"time"
 
 	"github.com/alvinunreal/tmuxai/config"
 	"github.com/nyaosorg/go-readline-ny"
@@ -16,12 +15,6 @@ import (
 	"github.com/nyaosorg/go-readline-ny/simplehistory"
 )
 
-// Message represents a chat message
-type ChatMessage struct {
-	Content   string
-	FromUser  bool
-	Timestamp time.Time
-}
 
 type CLIInterface struct {
 	manager     *Manager
@@ -79,6 +72,7 @@ func (c *CLIInterface) Start(initMessage string) error {
 			continue
 		} else if err == io.EOF {
 			// Ctrl+D pressed, exit
+			c.manager.SaveSession()
 			return nil
 		} else if err != nil {
 			return err
@@ -103,6 +97,7 @@ func (c *CLIInterface) Start(initMessage string) error {
 		// Check for exit/quit commands (only if it's the entire line content)
 		trimmed := strings.TrimSpace(input)
 		if trimmed == "exit" || trimmed == "quit" {
+			c.manager.SaveSession()
 			return nil
 		}
 		if trimmed == "" {

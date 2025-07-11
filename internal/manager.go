@@ -12,46 +12,6 @@ import (
 	"github.com/fatih/color"
 )
 
-// Parsed only when pane is prepared
-type CommandExecHistory struct {
-	Command string
-	Output  string
-	Code    int
-}
-
-type ExecCommandInfo struct {
-	Command string
-	PaneID  string
-}
-
-type SendKeysInfo struct {
-	Keys   string
-	PaneID string
-}
-
-type PasteInfo struct {
-	Content string
-	PaneID  string
-}
-
-type ReadFileInfo struct {
-	FilePath string
-	PaneID   string
-}
-
-type AIResponse struct {
-	Message                string
-	SendKeys               []SendKeysInfo
-	ExecCommand            []ExecCommandInfo
-	PasteMultilineContent  []PasteInfo
-	ReadFile               []ReadFileInfo
-	RequestAccomplished    bool
-	ExecPaneSeemsBusy      bool
-	WaitingForUserResponse bool
-	NoComment              bool
-	CreateExecPane         bool
-}
-
 // Manager represents the TmuxAI manager agent
 type Manager struct {
 	Config           *config.Config
@@ -61,14 +21,17 @@ type Manager struct {
 	ExecPane         *system.TmuxPaneDetails
 	Messages         []ChatMessage
 	ExecHistory      []CommandExecHistory
+	ReadFiles        []string
 	WatchMode        bool
 	OS               string
 	SessionOverrides map[string]interface{} // session-only config overrides
 	LastExecPaneID   string
+	SessionPath      string
+	isRestore        bool
 }
 
 // NewManager creates a new manager agent
-func NewManager(cfg *config.Config) (*Manager, error) {
+func NewManager(cfg *config.Config, isRestore bool) (*Manager, error) {
 	if cfg.OpenRouter.APIKey == "" {
 		fmt.Println("OpenRouter API key is required. Set it in the config file or as an environment variable: TMUXAI_OPENROUTER_API_KEY")
 		return nil, fmt.Errorf("OpenRouter API key is required")
@@ -95,7 +58,7 @@ func NewManager(cfg *config.Config) (*Manager, error) {
 	}
 
 	aiClient := NewAiClient(&cfg.OpenRouter)
-	os := system.GetOSDetails()
+	osName := system.GetOSDetails()
 
 	manager := &Manager{
 		Config:           cfg,
@@ -103,9 +66,26 @@ func NewManager(cfg *config.Config) (*Manager, error) {
 		PaneId:           paneId,
 		Messages:         []ChatMessage{},
 		ExecPane:         &system.TmuxPaneDetails{},
-		OS:               os,
+		OS:               osName,
 		SessionOverrides: make(map[string]interface{}),
 		LastExecPaneID:   "",
+		ReadFiles:        []string{},
+		SessionPath:      "",
+		isRestore:        isRestore,
+	}
+
+	// Session loading logic
+	if manager.isRestore {
+		latestSession, err := findLatestSession()
+		if err != nil {
+			// It's not an error if no session is found, just log it.
+			logger.Info("Restore flag is set, but no previous session found: %v", err)
+		} else {
+			if err := manager.LoadSession(latestSession); err != nil {
+				// Also not a fatal error, just log and continue with a new session.
+				logger.Error("Failed to load session %s: %v", latestSession, err)
+			}
+		}
 	}
 
 	manager.InitExecPane()
@@ -163,45 +143,3 @@ func (m *Manager) GetPrompt() string {
 	return prompt
 }
 
-func (ai *AIResponse) String() string {
-	var execCommands []string
-	for _, cmd := range ai.ExecCommand {
-		execCommands = append(execCommands, fmt.Sprintf("{Cmd: %s, PaneID: %s}", cmd.Command, cmd.PaneID))
-	}
-	var sendKeys []string
-	for _, sk := range ai.SendKeys {
-		sendKeys = append(sendKeys, fmt.Sprintf("{Keys: %s, PaneID: %s}", sk.Keys, sk.PaneID))
-	}
-	var pasteContent []string
-	for _, pc := range ai.PasteMultilineContent {
-		pasteContent = append(pasteContent, fmt.Sprintf("{Content: %s, PaneID: %s}", pc.Content, pc.PaneID))
-	}
-	var readFiles []string
-	for _, rf := range ai.ReadFile {
-		readFiles = append(readFiles, fmt.Sprintf("{FilePath: %s, PaneID: %s}", rf.FilePath, rf.PaneID))
-	}
-
-	return fmt.Sprintf(`
-	Message: %s
-	SendKeys: %v
-	ExecCommand: %v
-	PasteMultilineContent: %v
-	ReadFile: %v
-	RequestAccomplished: %v
-	ExecPaneSeemsBusy: %v
-	WaitingForUserResponse: %v
-	NoComment: %v
-	CreateExecPane: %v
-`,
-		ai.Message,
-		sendKeys,
-		execCommands,
-		pasteContent,
-		readFiles,
-		ai.RequestAccomplished,
-		ai.ExecPaneSeemsBusy,
-		ai.WaitingForUserResponse,
-		ai.NoComment,
-		ai.CreateExecPane,
-	)
-}
