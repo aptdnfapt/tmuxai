@@ -55,15 +55,39 @@ This section outlines the key features and changes required to evolve `tmuxai` i
     - **`/session` Command and --resotre flag **: Introduce a `/session` command to list all available sessions (by title) and allow the user to switch between them.
     - **Automatic Restore**: When `tmuxai` is started in a directory, it shouldnt resotore anything auto matically unless tmuxai --restore was ran . only then it gong to restore the latest chat from the josns . normally running tmuxai or (--agentic) will result in a new session . and only can get the old session history back by now typing /sessions to choose session  . 
 
-    #### we must add --restore and /session aka both of them 
+    #### we must add --restore and /session aka both of them  (((( not done yet )))
 
-### 3. Intelligent Project Comprehension (`RepoMap`)
+### 3. Intelligent Project Comprehension (`RepoMap`) -- only for agentic
 
-- **Goal**: `tmuxai` must deeply understand the project's architecture to effectively orchestrate tasks and guide `aider`.
-- **Solution**: Implement a `RepoMap` feature inspired by `aider`.
-    - **Scanning & Tagging**: Use a parser like `tree-sitter` to scan all files in the repository and identify key code symbols (class/function definitions, references). Cache this data for performance.
-    - **Dependency Graph & Ranking**: Build a dependency graph where files are nodes. Use an algorithm like PageRank to rank files based on their importance and inter-dependencies. This identifies architecturally significant files.
-    - **Contextual Summary**: Generate a concise, token-budgeted text summary of the ranked files and their key symbols. This "repo map" will be provided to the AI as a high-level context of the entire project, allowing it to make better decisions about which files to read or edit.
+- **Goal**: Automatically provide the AI with a high-level understanding of the codebase by creating a "repo map," similar to the one used by `aider`. This process should be entirely automated and transparent to the user.
+- **Solution**: Implement a fully automatic, Git-aware `RepoMap` generation and caching system that runs in the background.
+
+#### Implementation Steps:
+
+1.  **Automatic Git Repository Detection**:
+    -   On startup, `tmuxai` will check if the current working directory is within a Git repository.
+    -   The `RepoMap` feature will only be activated if a Git repository is detected. This ensures it operates only in intended project environments.
+
+2.  **Automated Background Processing**:
+    -   The repo map generation is not a user command or an AI tool. It is an automatic background process.
+    -   On the first interaction in a session, `tmuxai` will check for a cached repo map. If it's missing or stale, it will trigger a one-time generation process.
+    -   The user may see a brief message like "Analyzing project structure..." while the initial map is created.
+
+3.  **Map Generation Using `ctags` and `git`**:
+    -   `tmuxai` will execute `git ls-files` to get a list of all files tracked by Git. This is more precise than scanning the entire directory and naturally respects `.gitignore`.
+    -   This list of files will be passed to the `universal-ctags` command to generate a structured index of all code symbols (functions, classes, etc.).
+    -   `tmuxai` will then parse the `ctags` output and format it into a token-efficient text map.
+
+4.  **Automatic Context Injection**:
+    -   Before sending any message to the AI, `tmuxai` will automatically load the repo map from its cache.
+    -   This map will be prepended to the system prompt or injected into the turn's context, giving the AI a persistent, high-level overview of the entire codebase with every interaction.
+    -   This is not transient context; it is a foundational part of the AI's knowledge for the session, refreshed as needed.
+
+5.  **Performance via Caching**:
+    -   The generated map and the modification times of all source files will be stored in the `.tmuxai/` directory.
+    -   Before each new user prompt, `tmuxai` will quickly check if any files have changed since the last map was generated. If not, the cached map is used instantly. If files have changed, the map is regenerated in the background.
+
+This approach aligns perfectly with the `aider` philosophy: it's a powerful, automated tool for the AI that "just works" in the background without any user or explicit AI intervention, providing crucial context for intelligent code assistance.
 
 ### 4. Enhanced Output Formatting
 
