@@ -359,7 +359,13 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		var totalBytes int64
 		var fileListForPrompt []string
 
-		for _, fileInfo := range r.ReadFile {
+		filesToProcess := r.ReadFile
+		if len(filesToProcess) > 1 && !m.GetMultiFileRead() {
+			m.Println("AI requested to read multiple files, but 'multi_file_read' is disabled. Reading only the first file.")
+			filesToProcess = filesToProcess[:1]
+		}
+
+		for _, fileInfo := range filesToProcess {
 			osInfo, absPath, err := m.validateReadFile(fileInfo.FilePath)
 			if err != nil {
 				m.Println(fmt.Sprintf("Skipping file %s: %v", fileInfo.FilePath, err))
@@ -394,6 +400,7 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 		// 3. Read confirmed files and build content
 		var fileContents []string
+		filesAdded := 0
 		for _, file := range filesToRead {
 			content, err := os.ReadFile(file.AbsPath)
 			if err != nil {
@@ -402,26 +409,35 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 			}
 
 			logger.Info("Read file: %s (%d bytes)", file.AbsPath, len(content))
+
+			// Add to session's read file list if not already there
+			isAlreadyRead := false
+			for _, path := range m.ReadFiles {
+				if path == file.AbsPath {
+					isAlreadyRead = true
+					break
+				}
+			}
+			if !isAlreadyRead {
+				m.ReadFiles = append(m.ReadFiles, file.AbsPath)
+			}
+
 			fileHeader := fmt.Sprintf("\n--- File: %s ---\n", file.Info.FilePath)
 			fileFooter := fmt.Sprintf("\n--- End of %s ---\n", file.Info.FilePath)
 			fileContents = append(fileContents, fileHeader+string(content)+fileFooter)
+			filesAdded++
 		}
 
-		// If we successfully read any files, add them to the conversation context
+		// If we successfully read any files, inject them into the next turn's context
 		// and re-process immediately so the AI can use the file content.
 		if len(fileContents) > 0 {
 			allFileContent := strings.Join(fileContents, "\n")
-			// Create a system message with the file content
-			fileMessage := ChatMessage{
-				Content:   "I have read the file(s) you requested. Here are the contents:\n" + allFileContent,
-				FromUser:  false, // This is context from the system, not an assistant response
-				Timestamp: time.Now(),
-			}
-			m.Messages = append(m.Messages, fileMessage)
-			m.Println(fmt.Sprintf("Successfully read %d file(s) and added to context.", len(fileContents)))
+			fileContextForNextTurn := "I have read the file(s) you requested. Here are the contents:\n" + allFileContent
+			m.Println(fmt.Sprintf("Successfully read %d file(s) and added to context for this turn.", filesAdded))
 
-			// Re-process immediately.
-			accomplished := m.ProcessUserMessage(ctx, "Now that you have the file content, what is the next step?")
+			// Re-process immediately, injecting file content into this turn's message.
+			nextPrompt := fileContextForNextTurn + "\n\nNow that you have the file content, what is the next step?"
+			accomplished := m.ProcessUserMessage(ctx, nextPrompt)
 			return accomplished
 		}
 	}

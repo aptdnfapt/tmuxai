@@ -18,6 +18,7 @@ const helpMessage = `Available commands:
 - /unprepare [pane_id]: Toggles a pane out of 'prepared' mode.
 - /watch <prompt>: Start watch mode
 - /squash: Summarize the chat history
+- /session: List and manage sessions
 - /exit: Exit the application`
 
 var commands = []string{
@@ -31,6 +32,7 @@ var commands = []string{
 	"/unprepare",
 	"/config",
 	"/squash",
+	"/session",
 }
 
 // checks if the given content is a command
@@ -159,11 +161,16 @@ func (m *Manager) ProcessSubCommand(command string) {
 
 	case prefixMatch(commandPrefix, "/exit"):
 		logger.Info("Exit command received, stopping watch mode (if active) and exiting.")
+		m.SaveSession()
 		os.Exit(0)
 		return
 
 	case prefixMatch(commandPrefix, "/squash"):
 		m.squashHistory()
+		return
+
+	case prefixMatch(commandPrefix, "/session"):
+		m.Println("Session management is not yet fully implemented.")
 		return
 
 	case prefixMatch(commandPrefix, "/watch") || commandPrefix == "/w":

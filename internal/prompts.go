@@ -47,7 +47,19 @@ DO NOT WRITE MORE TEXT AFTER THE TOOL CALLS IN A RESPONSE. You can wait until th
 func (m *Manager) agenticPrompt() ChatMessage {
 	var builder strings.Builder
 	builder.WriteString(m.baseSystemPrompt())
-	builder.WriteString(`
+
+	readFileDef := `<ReadFile pane_id="%%1">: Use this to read file content silently.`
+	multiFileExample := ""
+	if m.GetMultiFileRead() {
+		readFileDef += ` You can specify multiple space-separated file paths to read several files in one action. STRONGLY prefer batching multiple file reads into a single <ReadFile> tag to be more efficient.`
+		multiFileExample = `
+Reading multiple files silently:
+  <ReadFile>main.go internal/utils.go</ReadFile>`
+	}
+	readFileDef += ` If pane_id is omitted, reads in primary exec pane context.`
+
+	// Using %% to escape % for fmt.Sprintf
+	agenticPromptText := fmt.Sprintf(`
 Your primary function is to assist users by interpreting their requests and executing appropriate actions across multiple panes.
 
 ==== PANE TARGETING SYSTEM ====
@@ -56,17 +68,17 @@ You can target specific panes using their IDs. The pane information is provided 
 - agentic_exec_pane: Additional panes you can execute commands in (use their specific IDs)
 - read_only_pane: Context-only panes (cannot execute commands)
 
-IMPORTANT: When targeting a specific pane, use the exact pane ID shown in the pane information (e.g., "%1", "%2", "%64").
+IMPORTANT: When targeting a specific pane, use the exact pane ID shown in the pane information (e.g., "%%%%1", "%%%%2", "%%%%64").
 
 You have access to the following XML tags to control the tmux panes:
 
-<ExecCommand pane_id="%1">: Use this to execute shell commands. You MUST decide whether to wait for the command to finish.
+<ExecCommand pane_id="%%%%1">: Use this to execute shell commands. You MUST decide whether to wait for the command to finish.
 To wait for a command (for long-running tasks like compiling, testing, or system updates), append '; echo "TMUXAI:EXITCODE:$?"' to your command string (or '; echo "TMUXAI:EXITCODE:$status"' for fish shell). TmuxAI will wait for this exact marker.
 To run a command without waiting (for quick, simple commands like 'ls', 'pwd'), just send the command by itself.
 
-<TmuxSendKeys pane_id="%1">: Use this to send keystrokes to a specific tmux pane. If pane_id is omitted, sends to primary exec pane.
-<PasteMultilineContent pane_id="%1">: Use this to paste multiline content into a specific tmux pane. If pane_id is omitted, pastes to primary exec pane.
-<ReadFile pane_id="%1">: Use this to read file content silently. You can specify multiple space-separated file paths to read several files in one action. If pane_id is omitted, reads in primary exec pane context.
+<TmuxSendKeys pane_id="%%%%1">: Use this to send keystrokes to a specific tmux pane. If pane_id is omitted, sends to primary exec pane.
+<PasteMultilineContent pane_id="%%%%1">: Use this to paste multiline content into a specific tmux pane. If pane_id is omitted, pastes to primary exec pane.
+%s
 <CreateExecPane>: Use this boolean tag (value 1) to create a new horizontal split pane for execution. The new pane will become the primary exec pane.
 <WaitingForUserResponse>: Use this boolean tag (value 1) when you have a question, need input or clarification from the user to accomplish the request.
 <RequestAccomplished>: Use this boolean tag (value 1) when you have successfully completed and verified the user's request.
@@ -75,16 +87,16 @@ EXAMPLES OF EXECUTION STRATEGY:
 WAITING for a system update:
   <ExecCommand>sudo apt update && sudo apt upgrade -y; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
 WAITING for a build to finish:
-  <ExecCommand pane_id="%64">go build .; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+  <ExecCommand pane_id="%%%%64">go build .; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
 NOT WAITING for a simple listing:
   <ExecCommand>ls -la</ExecCommand>
 Sending keys to another pane:
-  <TmuxSendKeys pane_id="%63">/add main.go</TmuxSendKeys>
+  <TmuxSendKeys pane_id="%%%%63">/add main.go</TmuxSendKeys>
 Reading a file silently:
-  <ReadFile>main.go</ReadFile>
-Reading multiple files silently:
-  <ReadFile>main.go internal/utils.go</ReadFile>
-`)
+  <ReadFile>main.go</ReadFile>%s
+`, readFileDef, multiFileExample)
+
+	builder.WriteString(agenticPromptText)
 
 	builder.WriteString(`
 You should be concise, direct, and to the point. When you run a non-trivial bash command, you should explain what the command does and why you are running it, to make sure the user understands what you are doing (this is especially important when you are running a command that will make changes to the user's system).
@@ -118,23 +130,35 @@ You must pay close attention to the entire conversation history. The user may ha
 func (m *Manager) chatAssistantPrompt(prepared bool) ChatMessage {
 	var builder strings.Builder
 	builder.WriteString(m.baseSystemPrompt())
-	builder.WriteString(`
+
+	readFileDef := `<ReadFile>: Use this to read file content silently.`
+	multiFileExample := ""
+	if m.GetMultiFileRead() {
+		readFileDef += ` You can specify multiple space-separated file paths to read several files in one action. STRONGLY prefer batching multiple file reads into a single <ReadFile> tag to be more efficient.`
+		multiFileExample = `
+<reading_multiple_files>
+I'll read both the main Go file and the utils file to understand how they work together.
+<ReadFile>main.go internal/utils.go</ReadFile>
+</reading_multiple_files>`
+	}
+
+	builder.WriteString(fmt.Sprintf(`
 Your primary function is to assist users by interpreting their requests and executing appropriate actions.
 You have access to the following XML tags to control the tmux pane:
 
 <ExecCommand>: Use this to execute shell commands in the exec pane. If the pane is prepared (via /prepare), TmuxAI will wait for completion. Otherwise, it will not wait.
 <TmuxSendKeys>: Use this to send keystrokes to the tmux pane.
 <PasteMultilineContent>: Use this to send multiline content into the tmux pane.
-<ReadFile>: Use this to read file content silently. You can specify multiple space-separated file paths to read several files in one action.
+%s
 <WaitingForUserResponse>: Use this boolean tag (value 1) when you have a question, need input or clarification from the user to accomplish the request.
 <RequestAccomplished>: Use this boolean tag (value 1) when you have successfully completed and verified the user's request.
-`)
+`, readFileDef))
 
 	if !prepared {
 		builder.WriteString(`<ExecPaneSeemsBusy>: Use this boolean tag (value 1) when you need to wait for the exec pane to finish before proceeding. This is only used for unprepared panes.`)
 	}
 
-	builder.WriteString(`
+	builder.WriteString(fmt.Sprintf(`
 
 When responding to user messages:
 1. Analyze the user's request carefully.
@@ -201,12 +225,8 @@ I'll list the contents of the current directory.
 I'll read the README file to understand the project.
 <ReadFile>README.md</ReadFile>
 </reading_a_file>
-
-<reading_multiple_files>
-I'll read both the main Go file and the utils file to understand how they work together.
-<ReadFile>main.go internal/utils.go</ReadFile>
-</reading_multiple_files>
-`)
+%s
+`, multiFileExample))
 	builder.WriteString(`</examples_of_responses>`)
 
 	// Custom additional prompt

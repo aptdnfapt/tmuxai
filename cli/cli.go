@@ -18,6 +18,7 @@ var (
 	taskFileFlag string
 	agenticFlag  bool
 	layoutFlag   string
+	restoreFlag  bool
 )
 
 var rootCmd = &cobra.Command{
@@ -57,7 +58,7 @@ var rootCmd = &cobra.Command{
 			logger.Info("Read request from file: %s", taskFileFlag)
 		}
 
-		mgr, err := internal.NewManager(cfg)
+		mgr, err := internal.NewManager(cfg, restoreFlag)
 		if err != nil {
 			logger.Error("manager.NewManager failed: %v", err)
 			os.Exit(1)
@@ -96,6 +97,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&taskFileFlag, "file", "f", "", "Read request from specified file")
 	rootCmd.Flags().BoolP("version", "v", false, "Print version information")
 	rootCmd.Flags().BoolVar(&agenticFlag, "agentic", false, "Enable agentic multi-pane features")
+	rootCmd.Flags().BoolVar(&restoreFlag, "restore", false, "Restore the last session from the current directory")
 	rootCmd.Flags().StringVar(&layoutFlag, "layout", "", "Specify a layout to apply on startup (e.g., '1x2'). Requires --agentic flag.")
 }
 
