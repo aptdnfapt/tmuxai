@@ -170,7 +170,46 @@ func (m *Manager) ProcessSubCommand(command string) {
 		return
 
 	case prefixMatch(commandPrefix, "/session"):
-		m.Println("Session management is not yet fully implemented.")
+		sessions, err := ListSessions()
+		if err != nil {
+			m.Println(fmt.Sprintf("Error listing sessions: %v", err))
+			return
+		}
+		if len(sessions) == 0 {
+			m.Println("No saved sessions found in this directory.")
+			return
+		}
+
+		selectedPath, err := ShowSessionList(sessions)
+		if err != nil {
+			// This can happen if the UI fails to start, but not on user quit (q)
+			m.Println(fmt.Sprintf("Could not show session list: %v", err))
+			return
+		}
+
+		if selectedPath != "" {
+			// Save the current session before switching.
+			if err := m.SaveSession(); err != nil {
+				m.Println(fmt.Sprintf("Warning: could not save current session: %v", err))
+				logger.Error("Failed to save session before switching: %v", err)
+			}
+
+			// Clear current state before loading
+			m.Messages = []ChatMessage{}
+			m.ExecHistory = []CommandExecHistory{}
+			m.ReadFiles = []string{}
+			m.SessionPath = ""
+			m.Status = "running" // Ensure status is active
+
+			if err := m.LoadSession(selectedPath); err != nil {
+				m.Println(fmt.Sprintf("Error loading session: %v", err))
+			} else {
+				// Successfully loaded, clear the screen and show a prompt
+				system.TmuxClearPane(m.PaneId)
+				m.Println("Session restored. You can continue the conversation.")
+			}
+		}
+		// If no path is selected (user quit), we just return to the prompt
 		return
 
 	case prefixMatch(commandPrefix, "/watch") || commandPrefix == "/w":

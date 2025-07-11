@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -62,6 +63,58 @@ func ensureSessionDir() (string, error) {
 	}
 
 	return sessionPath, nil
+}
+
+// SessionInfo contains minimal information about a session for listing.
+type SessionInfo struct {
+	FilePath  string
+	Title     string
+	Timestamp time.Time
+}
+
+// ListSessions finds all session files and returns their information, sorted by most recent.
+func ListSessions() ([]SessionInfo, error) {
+	sessionPath, err := ensureSessionDir()
+	if err != nil {
+		return nil, err
+	}
+
+	files, err := os.ReadDir(sessionPath)
+	if err != nil {
+		return nil, fmt.Errorf("could not read session directory: %w", err)
+	}
+
+	var sessions []SessionInfo
+
+	for _, file := range files {
+		if !file.IsDir() && filepath.Ext(file.Name()) == ".json" {
+			filePath := filepath.Join(sessionPath, file.Name())
+			data, err := os.ReadFile(filePath)
+			if err != nil {
+				logger.Error("Failed to read session file %s: %v", filePath, err)
+				continue
+			}
+
+			var sessionData SessionData
+			if err := json.Unmarshal(data, &sessionData); err != nil {
+				logger.Error("Failed to parse session file %s: %v", filePath, err)
+				continue
+			}
+
+			sessions = append(sessions, SessionInfo{
+				FilePath:  filePath,
+				Title:     sessionData.Title,
+				Timestamp: sessionData.Timestamp,
+			})
+		}
+	}
+
+	// Sort sessions by timestamp, descending (most recent first)
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].Timestamp.After(sessions[j].Timestamp)
+	})
+
+	return sessions, nil
 }
 
 // findLatestSession finds the most recently modified session file in the session directory.
