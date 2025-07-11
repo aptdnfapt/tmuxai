@@ -30,43 +30,171 @@ build context efficiently.
 
 ---
 
-## III. Analysis of Current TmuxAI Capabilities
+## III. Development Roadmap
 
-### What TmuxAI Has
+This section outlines the key features and changes required to evolve `tmuxai` into a powerful orchestrator for `aider`.
+### 0 : THE GOAL OF THE PORJECT IS TO GIVE TMUXAI ENOUGH TOOLS SO THAT IT CAN SUPPORT MY WORKFLOW BUT NOT TO HARDCODE ANY AIDER OR AIDER RELATED STUFF INSIDE TMUXAI. TMXUAI IS A STAND ALONE PROJECT OF ITS OWN . WHICH GOING TO HOLD TOOLS POWERFUL ENOGH THAT USING THE AIDER-AGENTITC MD FILE ON THE AGETIC SYSTHEM PROMPT OF THE YAML WE SHOULD BE ABLE TO ACHIVE THE COMBINE POWER . TMUXAI AND AIDER WILL UNITE ON THE CONFIG YAML SYSTHEM PROPMPT AND MAKE SURE TO UNDERSTAND THEY CAN ALSO USE THIS TOOLS AS A STAND ALONE  PROGRAM OF ITS OWN.
 
-1.  **Agentic Mode & Multi-Pane Control**:
-    *   The `--agentic` flag and `agentic_mode` config (`config/config.go`) are fully functional.
-    *   The system prompt for agentic mode (`internal/prompts.go`) instructs the AI to target specific panes via `pane_id` attributes, enabling complex workspace orchestration.
-    *   The AI can create new panes on demand using `<CreateExecPane>`.
+### 1. Transient File Context ("Fresh Read" Strategy)
 
-2.  **Reliable, Marker-Based Command Execution**:
-    *   A robust, marker-based system (`TMUXAI:EXITCODE:$?`) is implemented to reliably detect command completion and capture exit codes.
-    *   In non-agentic "prepared" mode, the marker is appended automatically for synchronous execution.
-    *   In agentic mode, the AI is instructed to append the marker to long-running commands, giving it granular control over synchronous vs. asynchronous execution.
+- **Problem**: Reading files adds their full content to the permanent chat history, which is inefficient and leads to stale context.
+- **Solution**: Adopt `aider`'s "fresh read" approach.
+    - When `<ReadFile>` is used, its content will be injected into the AI context for the **current request only**.
+    - File content will **not** be appended to the persistent chat history (`m.Messages`).
+    - This ensures the AI always works with the latest version of a file from disk and keeps the long-term history lean and relevant.
 
-3.  **Efficient Multi-File Reading**:
-    *   The `<ReadFile>` tool can accept multiple, space-separated file paths in a single tag (e.g., `<ReadFile>file1.go file2.go</ReadFile>`).
-    *   The system performs a single batch confirmation for all requested files, rather than asking for each one individually, improving user experience.
-    *   Includes essential safeguards against reading directories, oversized files (`max_read_file_size`), and binary files.
+### 2. Persistent, Project-Scoped Session Management
 
-4.  **Automatic Context Management**:
-    *   The `squashHistory` feature (`internal/squash.go`) automatically summarizes long conversations when they approach the token limit, preventing errors during long-running tasks.
+- **Problem**: Conversation history is lost on exit, preventing the continuation of complex tasks.
+- **Solution**: Implement a robust session management system.
+    - **Storage**: In a project's root, create a `.tmuxai/` directory to store session data. If the project is a Git repository, `tmuxai` must automatically add `.tmuxai/` to `.gitignore`.
+    - it will also contain a part as "content of the last sessions exec panes " which will contain all the commads ran on ther other panes that was used on . this contains the aider --message and other commands .
+    - also when sessions are being restore using --restore or /sessions and choose . it should also add those files on the chat those was added already on that last session . so we need to log which files was on the session too ? 
+    - **Multiple Sessions**: Allow for multiple, named session histories within a project (e.g., `.tmuxai/feature_x.json`, `.tmuxai/bug_fix_y.json`).
+    - **AI-Generated Titles**: Each session file will contain an AI-generated title for easy identification.
+    - **`/session` Command and --resotre flag **: Introduce a `/session` command to list all available sessions (by title) and allow the user to switch between them.
+    - **Automatic Restore**: When `tmuxai` is started in a directory, it shouldnt resotore anything auto matically unless tmuxai --restore was ran . only then it gong to restore the latest chat from the josns . normally running tmuxai or (--agentic) will result in a new session . and only can get the old session history back by now typing /sessions to choose session  . 
 
-5.  **User Input History**:
-    *   User command-line input is persisted to a history file (`~/.config/tmuxai/history`), providing a standard readline experience.
+    #### we must add --restore and /session aka both of them 
 
-### What TmuxAI Needs
+### 3. Intelligent Project Comprehension (`RepoMap`)
 
-1.  **Persistent, Directory-Scoped Session History**:
-    *   **Problem**: The full conversation state (`m.Messages`) is currently stored only in memory and is lost when `tmuxai` exits, preventing the continuation of complex tasks.
-    *   **Required Change**: Implement a persistent session history mechanism.
-        *   **Storage**: When `tmuxai --agentic` is run, save the conversation history to a JSON file (e.g., `history.agentic.json`) inside a `.tmuxai_sessions` directory within the project's folder.
-        *   **Session Management**: Introduce a new `/session` command to list and load previous conversations, restoring the full context.
-        *   **AI-Generated Titles**: Use the AI to generate a concise, descriptive title for the session, to be displayed when listing sessions.
-        *   **Automatic Save**: Save the session automatically on exit or if the pane dies to avoid context loss.
+- **Goal**: `tmuxai` must deeply understand the project's architecture to effectively orchestrate tasks and guide `aider`.
+- **Solution**: Implement a `RepoMap` feature inspired by `aider`.
+    - **Scanning & Tagging**: Use a parser like `tree-sitter` to scan all files in the repository and identify key code symbols (class/function definitions, references). Cache this data for performance.
+    - **Dependency Graph & Ranking**: Build a dependency graph where files are nodes. Use an algorithm like PageRank to rank files based on their importance and inter-dependencies. This identifies architecturally significant files.
+    - **Contextual Summary**: Generate a concise, token-budgeted text summary of the ranked files and their key symbols. This "repo map" will be provided to the AI as a high-level context of the entire project, allowing it to make better decisions about which files to read or edit.
 
-2.  **Deeper Aider Integration**: ( need to work on the agentic aider md file . as its the sys prompt  .)
-    *   **Goal**: The primary long-term goal is to enhance `tmuxai` to act as an intelligent orchestrator for `aider`.
-    *   **Workflow**: `tmuxai` would manage the high-level workflow (project comprehension, verification), while delegating file editing tasks to `aider`.
-    *   **Implementation**: This will require teaching `tmuxai` to construct and execute precise, non-interactive `aider` commands (e.g., `aider --yes --message "..." file1 file2`) and then run verification steps like builds or tests.
+### 4. Enhanced Output Formatting
 
+- **Problem**: Current AI responses in the chat pane can be large, unformatted blocks of text that are hard to read.
+- **Solution**: Improve the presentation of AI output.
+    - **Structure**: Format responses using clear structures like bullet points, headings, and lists.
+    - **Clarity**: Focus on "less text, more bullet points." The output should clearly delineate what `tmuxai` understands, what it plans to do, and what it needs from the user.
+    - **Goal**: Make the output more scannable, actionable, and less overwhelming for the user.
+
+    and reformating the designs using bubbles (last goal avoid for now )
+  
+
+### 5. Refined Aider Integration
+
+- **Goal**: Solidify `tmuxai`'s role as the orchestrator and `aider` as the file editor.
+- **Workflow**:
+    1.  `tmuxai` uses its `RepoMap` and file-reading capabilities to understand the project and form a high-level plan.
+    2.  It delegates specific file creation and modification tasks to `aider` by constructing precise, non-interactive `aider` commands.
+    3.  After `aider` completes an edit, `tmuxai` takes over to run verification steps (builds, tests, linters).
+    4.  This creates a clean separation of concerns: `tmuxai` for strategy, `aider` for execution.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### bubble docs here 
+TITLE: Customize Default `ItemDelegate` Styles (Go)
+DESCRIPTION: This Go code demonstrates how to customize the default `ItemDelegate` styles for a `list` bubble. It shows how to create a new default delegate, modify its `SelectedTitle` and `SelectedDesc` styles using `lipgloss.Color`, and then initialize or update the list model with the customized delegate to apply the new visual settings.
+SOURCE: https://github.com/charmbracelet/bubbles/blob/master/list/README.md#_snippet_2
+
+LANGUAGE: go
+CODE:
+```
+import "github.com/charmbracelet/bubbles/list"
+
+// Create a new default delegate
+d := list.NewDefaultDelegate()
+
+// Change colors
+c := lipgloss.Color("#6f03fc")
+d.Styles.SelectedTitle = d.Styles.SelectedTitle.Foreground(c).BorderLeftForeground(c)
+d.Styles.SelectedDesc = d.Styles.SelectedTitle.Copy() // reuse the title style here
+
+// Initailize the list model with our delegate
+width, height := 80, 40
+l := list.New(listItems, d, width, height)
+
+// You can also change the delegate on the fly
+l.SetDelegate(d)
+```
+
+----------------------------------------
+
+TITLE: Define `list.Item` Interface for Custom List Items (Go APIDOC)
+DESCRIPTION: To create custom items for the `list` bubble, they must implement the `list.Item` interface. This interface requires a `FilterValue()` method, which provides the string used for filtering items within the list.
+SOURCE: https://github.com/charmbracelet/bubbles/blob/master/list/README.md#_snippet_0
+
+LANGUAGE: go
+CODE:
+```
+// Item is an item that appears in the list.
+type Item interface {
+	// FilterValue is the value we use when filtering against this item when
+	// we're filtering the list.
+	FilterValue() string
+}
+```
+
+----------------------------------------
+
+TITLE: Define `list.DefaultItem` Interface for Default List Items (Go APIDOC)
+DESCRIPTION: The `list.DefaultItem` interface extends `list.Item` and is specifically designed to work with `DefaultDelegate`. In addition to `FilterValue()`, it requires `Title()` and `Description()` methods to provide display text for the item.
+SOURCE: https://github.com/charmbracelet/bubbles/blob/master/list/README.md#_snippet_1
+
+LANGUAGE: go
+CODE:
+```
+// DefaultItem describes an item designed to work with DefaultDelegate.
+type DefaultItem interface {
+	Item
+	Title() string
+	Description() string
+}
+```
+
+----------------------------------------
+
+TITLE: Define and Use Keybindings with Key Component in Go
+DESCRIPTION: This snippet illustrates how to define custom keybindings using the `key.Binding` type and a `KeyMap` struct. It shows how to associate actual key combinations with help text and how to match incoming `tea.KeyMsg` events against these defined keybindings within a `tea.Model`'s `Update` method.
+SOURCE: https://github.com/charmbracelet/bubbles/blob/master/README.md#_snippet_0
+
+LANGUAGE: go
+CODE:
+```
+type KeyMap struct {
+    Up key.Binding
+    Down key.Binding
+}
+
+var DefaultKeyMap = KeyMap{
+    Up: key.NewBinding(
+        key.WithKeys("k", "up"),        // actual keybindings
+        key.WithHelp("↑/k", "move up"), // corresponding help text
+    ),
+    Down: key.NewBinding(
+        key.WithKeys("j", "down"),
+        key.WithHelp("↓/j", "move down"),
+    ),
+}
+
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    switch msg := msg.(type) {
+    case tea.KeyMsg:
+        switch {
+        case key.Matches(msg, DefaultKeyMap.Up):
+            // The user pressed up
+        case key.Matches(msg, DefaultKeyMap.Down):
+            // The user pressed down
+        }
+    }
+    return m, nil
+}
+```
