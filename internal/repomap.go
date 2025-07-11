@@ -38,6 +38,13 @@ func NewRepoMapHandler() *RepoMapHandler {
 		return nil // Not a git repo, so disable the feature.
 	}
 
+	// Check for universal-ctags executable before enabling the handler
+	if _, err := exec.LookPath("ctags"); err != nil {
+		// This is logged for debugging, but the user is not warned repeatedly.
+		logger.Info("universal-ctags not found in PATH. RepoMap feature will be disabled. Please install it to use this feature.")
+		return nil
+	}
+
 	sessionDir := filepath.Join(gitRoot, repoMapDir)
 	if err := os.MkdirAll(sessionDir, 0755); err != nil {
 		logger.Error("Failed to create repomap directory: %v", err)
@@ -101,11 +108,6 @@ func (h *RepoMapHandler) GetMap() (string, error) {
 }
 
 func (h *RepoMapHandler) generateMap(files []string) (string, error) {
-	// Check for universal-ctags executable
-	if _, err := exec.LookPath("ctags"); err != nil {
-		return "", fmt.Errorf("universal-ctags not found in PATH, please install it to use the repomap feature")
-	}
-
 	// Create a temporary file list for ctags
 	tmpFile, err := os.CreateTemp("", "ctags-file-list-*.txt")
 	if err != nil {
