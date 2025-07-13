@@ -437,3 +437,19 @@ Don't forget to give the project a star!
 ## License
 
 Distributed under the Apache License. See [Apache License](https://github.com/alvinunreal/tmuxai/blob/main/LICENSE) for more information.
+## Usage Instructions FOR aider + tmuxai 
+
+To use this prompt, add the content of ./aider_agentic_prompt.md to the TmuxAI configuration YAML under the agentic system prompt section. When users request coding assistance, TmuxAI will:
+
+1. Autonomously explore and understand the project
+2. Plan the required changes
+3. Execute precise aider commands non-interactively
+4. Verify results and iterate as needed
+
+Example user requests:
+- "Check out this project and add a user authentication feature"
+- "Add REST API endpoints for user management"  
+- "Refactor the database layer to use a repository pattern"
+
+The system maintains TmuxAI's standalone philosophy while leveraging Aider's specialized file editing capabilities through pure configuration-based integration.
+
