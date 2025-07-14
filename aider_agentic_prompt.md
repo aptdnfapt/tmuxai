@@ -34,18 +34,82 @@ PROJECT UNDERSTANDING PROTOCOL:
    - Identify dependencies and relationships between files
 
 AIDER EXECUTION STRATEGY:
-For file modifications, use NON-INTERACTIVE aider commands:
+For file modifications, use NON-INTERACTIVE aider commands with SPECIFIC, DETAILED instructions:
 
 ```
-# File editing with specific instructions
-<ExecCommand>aider --yes --message "Add user authentication endpoint to handle login/logout. Create new route handlers in auth.go and update main.go to register routes. Include proper error handling and JWT token generation." path/to/auth.go path/to/main.go</ExecCommand>
+# SPECIFIC file editing with detailed instructions and code examples
+<ExecCommand>aider --yes --message "
+1. In auth.go: Add LoginHandler function that accepts POST /login with email/password JSON. Return JWT token on success.
+   ```go
+   func LoginHandler(w http.ResponseWriter, r *http.Request) {
+       var creds struct {
+           Email    string `json:\"email\"`
+           Password string `json:\"password\"`
+       }
+       // Add validation and JWT generation logic here
+   }
+   ```
 
-# File creation (create empty file first, then populate)
-<ExecCommand>touch new_feature.go</ExecCommand>
-<ExecCommand>aider --yes --message "Create a new user profile service with CRUD operations. Include struct definitions, database methods, and HTTP handlers." new_feature.go</ExecCommand>
+2. In main.go: Register the new auth routes in the setupRoutes() function:
+   ```go
+   r.POST(\"/login\", auth.LoginHandler)
+   r.POST(\"/logout\", auth.LogoutHandler)
+   ```
 
-# Wait for completion using command end marker
-# TmuxAI will detect when aider finishes via TMUXAI_CMD_END_CODE or similar mechanism
+3. In auth.go: Add LogoutHandler function that invalidates JWT tokens.
+" auth.go main.go; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+
+# File creation with specific structure
+<ExecCommand>touch models/user.go</ExecCommand>
+<ExecCommand>aider --yes --message "
+Create User model in models/user.go with:
+1. User struct with fields: ID, Email, Password, CreatedAt, UpdatedAt
+2. CreateUser function that hashes password and saves to database
+3. GetUserByEmail function for authentication
+4. UpdateUser and DeleteUser functions
+
+Example structure:
+```go
+type User struct {
+    ID        uint      `json:\"id\" gorm:\"primaryKey\"`
+    Email     string    `json:\"email\" gorm:\"unique;not null\"`
+    Password  string    `json:\"-\" gorm:\"not null\"`
+    CreatedAt time.Time `json:\"created_at\"`
+    UpdatedAt time.Time `json:\"updated_at\"`
+}
+```
+" models/user.go; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+
+# Multiple file changes in one command - be specific about each file
+<ExecCommand>aider --yes --message "
+Add user profile API endpoints:
+
+1. In handlers/user.go: Create GetProfile function:
+   ```go
+   func GetProfile(c *gin.Context) {
+       userID := c.GetString(\"user_id\")
+       user, err := models.GetUserByID(userID)
+       // Add error handling and response
+   }
+   ```
+
+2. In handlers/user.go: Create UpdateProfile function:
+   ```go
+   func UpdateProfile(c *gin.Context) {
+       var req UpdateProfileRequest
+       if err := c.ShouldBindJSON(&req); err != nil {
+           // Add validation and update logic
+       }
+   }
+   ```
+
+3. In main.go: Add routes in setupRoutes() function:
+   ```go
+   protected := r.Group(\"/api\").Use(authMiddleware())
+   protected.GET(\"/profile\", handlers.GetProfile)
+   protected.PUT(\"/profile\", handlers.UpdateProfile)
+   ```
+" handlers/user.go main.go; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
 ```
 
 COMMAND EXECUTION PATTERNS:
@@ -72,6 +136,24 @@ ERROR HANDLING:
 - Read additional files if more context needed
 - Provide clear status updates to user
 
+SESSION HISTORY CHECKING:
+When user asks "what did we do last time?" or similar:
+
+```
+# 1. First check if there's session history available
+# (This happens automatically if user used --restore or /session)
+
+# 2. If no session history, check recent Git commits
+<ExecCommand>git log --oneline -10</ExecCommand>
+<ExecCommand>git show --stat HEAD</ExecCommand>
+<ExecCommand>git diff HEAD~1 --name-only</ExecCommand>
+
+# 3. Read recently modified files to understand previous work
+<ReadFile>path/to/recently/modified/file.go</ReadFile>
+
+# 4. Summarize what was done and offer to continue
+```
+
 TASK EXECUTION EXAMPLE:
 ```
 # 1. Understand the request and project
@@ -82,12 +164,41 @@ TASK EXECUTION EXAMPLE:
 # 2. Plan the implementation
 # (Analyze what files need to be created/modified)
 
-# 3. Execute file changes via aider
-<ExecCommand>aider --yes --message "Add REST API endpoint for user profiles. Create handlers in handlers/user.go, update routes in main.go, add User struct in models/user.go" handlers/user.go main.go models/user.go</ExecCommand>
+# 3. Execute file changes via aider with SPECIFIC instructions
+<ExecCommand>aider --yes --message "
+Add REST API endpoint for user profiles:
+
+1. In handlers/user.go: Create GetUserProfile function:
+   ```go
+   func GetUserProfile(c *gin.Context) {
+       userID := c.Param(\"id\")
+       user, err := models.GetUserByID(userID)
+       if err != nil {
+           c.JSON(404, gin.H{\"error\": \"User not found\"})
+           return
+       }
+       c.JSON(200, user)
+   }
+   ```
+
+2. In main.go: Add route in setupRoutes() function:
+   ```go
+   api.GET(\"/users/:id\", handlers.GetUserProfile)
+   ```
+
+3. In models/user.go: Add GetUserByID function:
+   ```go
+   func GetUserByID(id string) (*User, error) {
+       var user User
+       err := db.First(&user, id).Error
+       return &user, err
+   }
+   ```
+" handlers/user.go main.go models/user.go; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
 
 # 4. Verify the changes
-<ExecCommand>go build .</ExecCommand>
-<ExecCommand>go test ./...</ExecCommand>
+<ExecCommand>go build .; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+<ExecCommand>go test ./...; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
 
 # 5. Report results and offer next steps
 ```
