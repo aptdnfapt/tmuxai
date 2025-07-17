@@ -14,6 +14,7 @@ const helpMessage = `Available commands:
 - /info: Display system information
 - /clear: Clear the chat history
 - /reset: Reset the chat history
+- /edit: Open an external editor to compose your prompt
 - /prepare [pane_id]: Toggles a pane into 'prepared' mode, where all AI commands will wait for completion. Not available in agentic mode.
 - /unprepare [pane_id]: Toggles a pane out of 'prepared' mode.
 - /watch <prompt>: Start watch mode
@@ -33,6 +34,7 @@ var commands = []string{
 	"/config",
 	"/squash",
 	"/session",
+	"/edit",
 }
 
 // checks if the given content is a command
@@ -43,8 +45,8 @@ func (m *Manager) IsMessageSubcommand(content string) bool {
 	return strings.HasPrefix(content, "/")
 }
 
-// processes a command and returns a response
-func (m *Manager) ProcessSubCommand(command string) {
+// processes a command and returns a message to process, and whether to process it
+func (m *Manager) ProcessSubCommand(command string) (string, bool) {
 	commandLower := strings.ToLower(strings.TrimSpace(command))
 	logger.Info("Processing command: %s", command)
 
@@ -52,7 +54,7 @@ func (m *Manager) ProcessSubCommand(command string) {
 	parts := strings.Fields(commandLower)
 	if len(parts) == 0 {
 		m.Println("Empty command")
-		return
+		return "", false
 	}
 
 	commandPrefix := parts[0]
@@ -61,16 +63,28 @@ func (m *Manager) ProcessSubCommand(command string) {
 	switch {
 	case prefixMatch(commandPrefix, "/help"):
 		m.Println(helpMessage)
-		return
+		return "", false
+
+	case prefixMatch(commandPrefix, "/edit"):
+		content, err := OpenInEditor(m.GetEditor(), "")
+		if err != nil {
+			m.Println(fmt.Sprintf("Error opening editor: %v", err))
+			return "", false
+		}
+		if content == "" {
+			m.Println("Cancelled.")
+			return "", false
+		}
+		return content, true
 
 	case prefixMatch(commandPrefix, "/info"):
 		m.formatInfo()
-		return
+		return "", false
 
 	case prefixMatch(commandPrefix, "/prepare"):
 		if m.GetAgenticMode() {
 			m.Println("Error: /prepare is not available in agentic mode. The AI manages command execution automatically.")
-			return
+			return "", false
 		}
 		parts := strings.Fields(command)
 		var targetPane *system.TmuxPaneDetails
@@ -91,7 +105,7 @@ func (m *Manager) ProcessSubCommand(command string) {
 			}
 			if !found {
 				m.Println(fmt.Sprintf("Error: Pane with ID %s not found.", paneID))
-				return
+				return "", false
 			}
 		} else {
 			if m.ExecPane == nil || m.ExecPane.Id == "" {
@@ -102,11 +116,11 @@ func (m *Manager) ProcessSubCommand(command string) {
 
 		if targetPane == nil || targetPane.Id == "" {
 			m.Println("Error: Could not determine a target pane to prepare.")
-			return
+			return "", false
 		}
 
 		m.PreparePane(targetPane)
-		return
+		return "", false
 
 	case prefixMatch(commandPrefix, "/unprepare"):
 		parts := strings.Fields(command)
@@ -128,7 +142,7 @@ func (m *Manager) ProcessSubCommand(command string) {
 			}
 			if !found {
 				m.Println(fmt.Sprintf("Error: Pane with ID %s not found.", paneID))
-				return
+				return "", false
 			}
 		} else {
 			if m.ExecPane == nil || m.ExecPane.Id == "" {
@@ -138,17 +152,17 @@ func (m *Manager) ProcessSubCommand(command string) {
 		}
 		if targetPane == nil || targetPane.Id == "" {
 			m.Println("Error: Could not determine a target pane to unprepare.")
-			return
+			return "", false
 		}
 		delete(m.PreparedPanes, targetPane.Id)
 		targetPane.IsPrepared = false
 		m.Println(fmt.Sprintf("Pane %s is no longer in prepared mode.", targetPane.Id))
-		return
+		return "", false
 
 	case prefixMatch(commandPrefix, "/clear"):
 		m.Messages = []ChatMessage{}
 		system.TmuxClearPane(m.PaneId)
-		return
+		return "", false
 
 	case prefixMatch(commandPrefix, "/reset"):
 		m.Status = ""
@@ -164,34 +178,34 @@ func (m *Manager) ProcessSubCommand(command string) {
 		}
 		// Re-initialize the exec pane after clearing
 		m.InitExecPane()
-		return
+		return "", false
 
 	case prefixMatch(commandPrefix, "/exit"):
 		logger.Info("Exit command received, stopping watch mode (if active) and exiting.")
 		m.SaveSession()
 		os.Exit(0)
-		return
+		return "", false
 
 	case prefixMatch(commandPrefix, "/squash"):
 		m.squashHistory()
-		return
+		return "", false
 
 	case prefixMatch(commandPrefix, "/session"):
 		sessions, err := ListSessions()
 		if err != nil {
 			m.Println(fmt.Sprintf("Error listing sessions: %v", err))
-			return
+			return "", false
 		}
 		if len(sessions) == 0 {
 			m.Println("No saved sessions found in this directory.")
-			return
+			return "", false
 		}
 
 		selectedPath, err := ShowSessionList(sessions)
 		if err != nil {
 			// This can happen if the UI fails to start, but not on user quit (q)
 			m.Println(fmt.Sprintf("Could not show session list: %v", err))
-			return
+			return "", false
 		}
 
 		if selectedPath != "" {
@@ -217,7 +231,7 @@ func (m *Manager) ProcessSubCommand(command string) {
 			}
 		}
 		// If no path is selected (user quit), we just return to the prompt
-		return
+		return "", false
 
 	case prefixMatch(commandPrefix, "/watch") || commandPrefix == "/w":
 		parts := strings.Fields(command)
@@ -231,10 +245,10 @@ Watch for: ` + watchDesc
 			m.Status = "running"
 			m.WatchMode = true
 			m.startWatchMode(startWatch)
-			return
+			return "", false
 		}
 		m.Println("Usage: /watch <description>")
-		return
+		return "", false
 
 	case prefixMatch(commandPrefix, "/config"):
 		// Helper function to check if a key is allowed
@@ -252,21 +266,21 @@ Watch for: ` + watchDesc
 			key := parts[2]
 			if !isKeyAllowed(key) {
 				m.Println(fmt.Sprintf("Cannot set '%s'. Only these keys are allowed: %s", key, strings.Join(AllowedConfigKeys, ", ")))
-				return
+				return "", false
 			}
 			value := strings.Join(parts[3:], " ")
 			m.SessionOverrides[key] = config.TryInferType(key, value)
 			m.Println(fmt.Sprintf("Set %s = %v", key, m.SessionOverrides[key]))
-			return
+			return "", false
 		} else {
 			code, _ := system.HighlightCode("yaml", m.FormatConfig())
 			fmt.Println(code)
-			return
+			return "", false
 		}
 
 	default:
 		m.Println(fmt.Sprintf("Unknown command: %s. Type '/help' to see available commands.", command))
-		return
+		return "", false
 	}
 }
 

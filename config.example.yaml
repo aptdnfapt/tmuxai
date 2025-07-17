@@ -3,6 +3,7 @@ max_capture_lines: 200 # Max lines of pane content (scrollback) to send to the A
 wait_interval: 5 # Wait interval when exec pane is considered busy (used in observe and watch modes)
 
 agentic_mode: false # Set to true to enable multi-pane command execution and creation
+editor: nano # The external editor to use for the /edit command (e.g., nano, nvim, vim, code --wait)
 layout: "" # Auto-apply layout on startup (e.g., "1x2"). Requires agentic_mode: true
 
 send_keys_confirm: true # Confirm before executing send keys

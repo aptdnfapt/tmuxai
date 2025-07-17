@@ -14,6 +14,7 @@ import (
 type Config struct {
 	Debug                 bool             `mapstructure:"debug"`
 	AgenticMode           bool             `mapstructure:"agentic_mode"`
+	Editor                string           `mapstructure:"editor"`
 	Layout                string           `mapstructure:"layout"`
 	MaxCaptureLines       int              `mapstructure:"max_capture_lines"`
 	MaxContextSize        int              `mapstructure:"max_context_size"`
@@ -51,6 +52,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Debug:                 false,
 		AgenticMode:           false,
+		Editor:                "nano",
 		Layout:                "",
 		MaxCaptureLines:       200,
 		MaxContextSize:        20000,
