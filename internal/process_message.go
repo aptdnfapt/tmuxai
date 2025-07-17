@@ -132,7 +132,7 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 	// colorize code blocks in the response
 	if r.Message != "" {
-		fmt.Println(system.Cosmetics(r.Message))
+		fmt.Println(m.GetAIChatPrompt() + system.Cosmetics(r.Message))
 	}
 
 	// observe/prepared mode
