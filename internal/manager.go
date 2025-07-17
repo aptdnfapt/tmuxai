@@ -136,6 +136,12 @@ func (m *Manager) Println(msg string) {
 	fmt.Println(m.GetPrompt() + msg)
 }
 
+func (m *Manager) GetAIChatPrompt() string {
+	tmuxaiColor := color.New(color.FgGreen, color.Bold)
+	colonColor := color.New(color.FgYellow, color.Bold)
+	return tmuxaiColor.Sprint("TmuxAI") + colonColor.Sprint(" : ")
+}
+
 func (m *Manager) GetConfig() *config.Config {
 	return m.Config
 }

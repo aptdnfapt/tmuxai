@@ -3,16 +3,11 @@ package internal
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"strings"
 
-	"github.com/alvinunreal/tmuxai/config"
-	"github.com/nyaosorg/go-readline-ny"
-	"github.com/nyaosorg/go-readline-ny/completion"
-	"github.com/nyaosorg/go-readline-ny/keys"
-	"github.com/nyaosorg/go-readline-ny/simplehistory"
+	"github.com/fatih/color"
 )
 
 
@@ -32,79 +27,37 @@ func NewCLIInterface(manager *Manager) *CLIInterface {
 func (c *CLIInterface) Start(initMessage string) error {
 	c.printWelcomeMessage()
 
-	// Initialize history
-	history := simplehistory.New()
-	historyFilePath := config.GetConfigFilePath("history")
-
-	// Load history from file if it exists
-	if historyData, err := os.ReadFile(historyFilePath); err == nil {
-		for _, line := range strings.Split(string(historyData), "\n") {
-			if line = strings.TrimSpace(line); line != "" {
-				history.Add(line)
-			}
-		}
-	}
-
-	// Initialize editor
-	editor := &readline.Editor{
-		PromptWriter: func(w io.Writer) (int, error) {
-			return io.WriteString(w, c.manager.GetPrompt())
-		},
-		History:        history,
-		HistoryCycling: true,
-	}
-
-	// Bind TAB key to completion
-	editor.BindKey(keys.CtrlI, c.newCompleter())
-
 	if initMessage != "" {
-		fmt.Printf("%s%s\n", c.manager.GetPrompt(), initMessage)
+		fmt.Println(c.manager.GetPrompt() + initMessage)
 		c.processInput(initMessage)
 	}
 
-	ctx := context.Background()
-
 	for {
-		line, err := editor.ReadLine(ctx)
-
-		if err == readline.CtrlC {
-			// Ctrl+C pressed, clear the line and continue
-			continue
-		} else if err == io.EOF {
-			// Ctrl+D pressed, exit
-			c.manager.SaveSession()
-			return nil
-		} else if err != nil {
+		line, err := ShowPromptEditor()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error running prompt editor: %v\n", err)
 			return err
 		}
 
-		// Save history
-		if line != "" {
-			history.Add(line)
-
-			// Build history data by iterating through all entries
-			historyLines := make([]string, 0, history.Len())
-			for i := 0; i < history.Len(); i++ {
-				historyLines = append(historyLines, history.At(i))
-			}
-			historyData := strings.Join(historyLines, "\n")
-			os.WriteFile(historyFilePath, []byte(historyData), 0644)
-		}
-
-		// Process the input (preserving multiline content)
-		input := line // Keep the original line including newlines
-
-		// Check for exit/quit commands (only if it's the entire line content)
-		trimmed := strings.TrimSpace(input)
-		if trimmed == "exit" || trimmed == "quit" {
-			c.manager.SaveSession()
-			return nil
-		}
-		if trimmed == "" {
+		// User cancelled input by pressing Esc.
+		if line == "" {
 			continue
 		}
 
-		c.processInput(input)
+		// After the editor closes, print the prompt and the entered command
+		// so it appears correctly in the terminal's scrollback history.
+		userColor := color.New(color.FgCyan, color.Bold)
+		colonColor := color.New(color.FgYellow, color.Bold)
+		fmt.Println(userColor.Sprint("User") + colonColor.Sprint(" : ") + line)
+
+		// Check for exit commands.
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "exit" || trimmed == "quit" || trimmed == "/exit" {
+			c.manager.SaveSession()
+			return nil
+		}
+
+		c.processInput(line)
 	}
 }
 
@@ -153,27 +106,3 @@ func (c *CLIInterface) processInput(input string) {
 	signal.Stop(sigChan)
 }
 
-// newCompleter creates a completion handler for command completion
-func (c *CLIInterface) newCompleter() *completion.CmdCompletionOrList2 {
-	return &completion.CmdCompletionOrList2{
-		Delimiter: " ",
-		Postfix:   " ",
-		Candidates: func(field []string) (forComp []string, forList []string) {
-			// Handle top-level commands
-			if len(field) == 0 || (len(field) == 1 && !strings.HasSuffix(field[0], " ")) {
-				return commands, commands
-			}
-
-			// Handle /config subcommands
-			if len(field) > 0 && field[0] == "/config" {
-				if len(field) == 1 || (len(field) == 2 && !strings.HasSuffix(field[1], " ")) {
-					return []string{"set", "get"}, []string{"set", "get"}
-				} else if len(field) == 2 || (len(field) == 3 && !strings.HasSuffix(field[2], " ")) {
-					return AllowedConfigKeys, AllowedConfigKeys
-				}
-			}
-
-			return nil, nil
-		},
-	}
-}
