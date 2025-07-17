@@ -34,14 +34,33 @@ func (m *Manager) parseAIResponse(response string) (AIResponse, error) {
 	}
 
 	// Handle ExecCommand
-	reExec := reWithPaneID("ExecCommand")
+	reExec := regexp.MustCompile(`(?s)<ExecCommand([^>]*)>(.*?)</ExecCommand>`)
 	execMatches := reExec.FindAllStringSubmatch(clean, -1)
 	for _, match := range execMatches {
 		if len(match) >= 3 {
-			r.ExecCommand = append(r.ExecCommand, ExecCommandInfo{PaneID: match[1], Command: html.UnescapeString(strings.TrimSpace(match[2]))})
+			attrs := match[1]
+			command := html.UnescapeString(strings.TrimSpace(match[2]))
+
+			rePaneID := regexp.MustCompile(`pane_id="([^"]*)"`)
+			reWait := regexp.MustCompile(`wait="(true|false|1|0)"`)
+
+			paneIDMatch := rePaneID.FindStringSubmatch(attrs)
+			waitMatch := reWait.FindStringSubmatch(attrs)
+
+			var paneID string
+			if len(paneIDMatch) > 1 {
+				paneID = paneIDMatch[1]
+			}
+			var wait bool
+			if len(waitMatch) > 1 {
+				wait = isTrue(waitMatch[1])
+			}
+
+			r.ExecCommand = append(r.ExecCommand, ExecCommandInfo{PaneID: paneID, Wait: wait, Command: command})
 		}
 	}
-	cleanForMsg = reExec.ReplaceAllString(cleanForMsg, "")
+	// Use a more general regex for cleaning to handle any attribute order.
+	cleanForMsg = regexp.MustCompile(`(?s)<ExecCommand[^>]*>.*?</ExecCommand>`).ReplaceAllString(cleanForMsg, "")
 
 	// Handle TmuxSendKeys
 	reSendKeys := reWithPaneID("TmuxSendKeys")
@@ -100,6 +119,9 @@ func (m *Manager) parseAIResponse(response string) (AIResponse, error) {
 		// For message: remove all tag blocks
 		cleanForMsg = reTag.ReplaceAllString(cleanForMsg, "")
 	}
+
+	// Clean up empty ``` blocks that might be left over after tag removal.
+	cleanForMsg = regexp.MustCompile("(?s)`{3}\\w*\\s*`{3}").ReplaceAllString(cleanForMsg, "")
 
 	// Message: trim, collapse multiple newlines
 	msg := strings.TrimSpace(cleanForMsg)

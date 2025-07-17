@@ -22,6 +22,7 @@ type CommandExecHistory struct {
 type ExecCommandInfo struct {
 	Command string `json:"command"`
 	PaneID  string `json:"pane_id"`
+	Wait    bool   `json:"wait"`
 }
 
 type SendKeysInfo struct {
@@ -55,7 +56,7 @@ type AIResponse struct {
 func (ai *AIResponse) String() string {
 	var execCommands []string
 	for _, cmd := range ai.ExecCommand {
-		execCommands = append(execCommands, fmt.Sprintf("{Cmd: %s, PaneID: %s}", cmd.Command, cmd.PaneID))
+		execCommands = append(execCommands, fmt.Sprintf("{Cmd: %s, PaneID: %s, Wait: %v}", cmd.Command, cmd.PaneID, cmd.Wait))
 	}
 	var sendKeys []string
 	for _, sk := range ai.SendKeys {

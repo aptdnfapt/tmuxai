@@ -38,7 +38,7 @@ For file modifications, use NON-INTERACTIVE aider commands with SPECIFIC, DETAIL
 
 ```
 # SPECIFIC file editing with detailed instructions and code examples
-<ExecCommand>aider --yes --message "
+<ExecCommand wait="true">aider --yes --message "
 1. In auth.go: Add LoginHandler function that accepts POST /login with email/password JSON. Return JWT token on success.
    ```go
    func LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -57,11 +57,11 @@ For file modifications, use NON-INTERACTIVE aider commands with SPECIFIC, DETAIL
    ```
 
 3. In auth.go: Add LogoutHandler function that invalidates JWT tokens.
-" auth.go main.go; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+" auth.go main.go</ExecCommand>
 
 # File creation with specific structure
 <ExecCommand>touch models/user.go</ExecCommand>
-<ExecCommand>aider --yes --message "
+<ExecCommand wait="true">aider --yes --message "
 Create User model in models/user.go with:
 1. User struct with fields: ID, Email, Password, CreatedAt, UpdatedAt
 2. CreateUser function that hashes password and saves to database
@@ -78,10 +78,10 @@ type User struct {
     UpdatedAt time.Time `json:\"updated_at\"`
 }
 ```
-" models/user.go; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+" models/user.go</ExecCommand>
 
 # Multiple file changes in one command - be specific about each file
-<ExecCommand>aider --yes --message "
+<ExecCommand wait="true">aider --yes --message "
 Add user profile API endpoints:
 
 1. In handlers/user.go: Create GetProfile function:
@@ -109,14 +109,15 @@ Add user profile API endpoints:
    protected.GET(\"/profile\", handlers.GetProfile)
    protected.PUT(\"/profile\", handlers.UpdateProfile)
    ```
-" handlers/user.go main.go; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+" handlers/user.go main.go</ExecCommand>
 ```
 
 COMMAND EXECUTION PATTERNS:
-- **Project builds**: `<ExecCommand>go build .</ExecCommand>` or `<ExecCommand>npm run build</ExecCommand>`
-- **Testing**: `<ExecCommand>go test ./...</ExecCommand>` or `<ExecCommand>npm test</ExecCommand>`
-- **Linting**: `<ExecCommand>golangci-lint run</ExecCommand>` or `<ExecCommand>eslint .</ExecCommand>`
-- **File operations**: Use aider for code changes, standard commands for file management
+- **Project builds (wait for completion)**: `<ExecCommand wait="true">go build .</ExecCommand>` or `<ExecCommand wait="true">npm run build</ExecCommand>`
+- **Testing (wait for completion)**: `<ExecCommand wait="true">go test ./...</ExecCommand>` or `<ExecCommand wait="true">npm test</ExecCommand>`
+- **Linting (wait for completion)**: `<ExecCommand wait="true">golangci-lint run</ExecCommand>` or `<ExecCommand wait="true">eslint .</ExecCommand>`
+- **File operations (don't wait)**: Use `touch`, `mv`, `mkdir` for simple file management. Use `aider` for code changes.
+- **Aider commands (wait for completion)**: Always use `wait="true"` for `aider` commands to ensure changes are applied before verification.
 
 VERIFICATION WORKFLOW:
 1. **Post-Edit Verification**:
@@ -165,7 +166,7 @@ TASK EXECUTION EXAMPLE:
 # (Analyze what files need to be created/modified)
 
 # 3. Execute file changes via aider with SPECIFIC instructions
-<ExecCommand>aider --yes --message "
+<ExecCommand wait="true">aider --yes --message "
 Add REST API endpoint for user profiles:
 
 1. In handlers/user.go: Create GetUserProfile function:
@@ -194,11 +195,11 @@ Add REST API endpoint for user profiles:
        return &user, err
    }
    ```
-" handlers/user.go main.go models/user.go; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+" handlers/user.go main.go models/user.go</ExecCommand>
 
 # 4. Verify the changes
-<ExecCommand>go build .; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
-<ExecCommand>go test ./...; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+<ExecCommand wait="true">go build .</ExecCommand>
+<ExecCommand wait="true">go test ./...</ExecCommand>
 
 # 5. Report results and offer next steps
 ```

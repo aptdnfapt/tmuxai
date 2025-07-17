@@ -47,13 +47,14 @@ func (m *Manager) CreateNewExecPane() {
 
 func (m *Manager) PreparePane(targetPane *system.TmuxPaneDetails) {
 	targetPane.Refresh(m.GetMaxCaptureLines())
-	if targetPane.IsPrepared {
+	if m.PreparedPanes[targetPane.Id] {
 		m.Println(fmt.Sprintf("Pane %s is already prepared.", targetPane.Id))
 		return
 	}
 
 	// This now simply flags the pane for marker-based execution. No more prompt injection.
-	targetPane.IsPrepared = true
+	m.PreparedPanes[targetPane.Id] = true
+	targetPane.IsPrepared = true // Update the live object as well
 	m.Println(fmt.Sprintf("Pane %s is now prepared for synchronous command execution.", targetPane.Id))
 }
 
@@ -65,11 +66,11 @@ func (m *Manager) PrepareExecPane() {
 	m.PreparePane(m.ExecPane)
 }
 
-func (m *Manager) ExecWaitCapture(targetPane *system.TmuxPaneDetails) (CommandExecHistory, error) {
-	const endMarker = "TMUXAI:EXITCODE"
+func (m *Manager) ExecWaitCapture(targetPane *system.TmuxPaneDetails, commandID string) (CommandExecHistory, error) {
+	const endMarkerPrefix = "tmuxai waiting for command id"
 	// This regex ensures we match the marker only when it appears on its own line,
 	// preventing a match on the command prompt itself.
-	re := regexp.MustCompile(`^` + endMarker + `:(-?\d+)$`)
+	re := regexp.MustCompile(fmt.Sprintf(`^%s: %s exitcode:(-?\d+)$`, endMarkerPrefix, commandID))
 
 	m.Println("") // Newline for the animation
 

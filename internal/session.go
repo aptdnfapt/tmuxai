@@ -17,11 +17,12 @@ const sessionDir = ".tmuxai"
 
 // SessionData holds all the data that needs to be persisted for a session.
 type SessionData struct {
-	Title       string               `json:"title"`
-	Messages    []ChatMessage        `json:"messages"`
-	ExecHistory []CommandExecHistory `json:"exec_history"`
-	ReadFiles   []string             `json:"read_files"` // List of absolute paths of files read
-	Timestamp   time.Time            `json:"timestamp"`
+	Title         string               `json:"title"`
+	Messages      []ChatMessage        `json:"messages"`
+	ExecHistory   []CommandExecHistory `json:"exec_history"`
+	ReadFiles     []string             `json:"read_files"` // List of absolute paths of files read
+	PreparedPanes map[string]bool      `json:"prepared_panes"`
+	Timestamp     time.Time            `json:"timestamp"`
 }
 
 // ensureSessionDir creates the .tmuxai directory if it doesn't exist.
@@ -168,6 +169,9 @@ func (m *Manager) LoadSession(path string) error {
 	m.ExecHistory = sessionData.ExecHistory
 	m.ReadFiles = sessionData.ReadFiles
 	m.SessionPath = path
+	if sessionData.PreparedPanes != nil {
+		m.PreparedPanes = sessionData.PreparedPanes
+	}
 
 	m.Println(fmt.Sprintf("Restored session: '%s'", sessionData.Title))
 	logger.Info("Session restored from %s", path)
@@ -209,11 +213,12 @@ func (m *Manager) SaveSession() error {
 	}
 
 	sessionData := SessionData{
-		Title:       title,
-		Messages:    m.Messages,
-		ExecHistory: m.ExecHistory,
-		ReadFiles:   m.ReadFiles,
-		Timestamp:   time.Now(),
+		Title:         title,
+		Messages:      m.Messages,
+		ExecHistory:   m.ExecHistory,
+		ReadFiles:     m.ReadFiles,
+		PreparedPanes: m.PreparedPanes,
+		Timestamp:     time.Now(),
 	}
 
 	data, err := json.MarshalIndent(sessionData, "", "  ")
