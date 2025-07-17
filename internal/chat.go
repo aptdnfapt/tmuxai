@@ -44,12 +44,6 @@ func (c *CLIInterface) Start(initMessage string) error {
 			continue
 		}
 
-		// After the editor closes, print the prompt and the entered command
-		// so it appears correctly in the terminal's scrollback history.
-		userColor := color.New(color.FgCyan, color.Bold)
-		colonColor := color.New(color.FgYellow, color.Bold)
-		fmt.Println(userColor.Sprint("User") + colonColor.Sprint(" : ") + line)
-
 		// Check for exit commands.
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "exit" || trimmed == "quit" || trimmed == "/exit" {
@@ -69,8 +63,28 @@ func (c *CLIInterface) printWelcomeMessage() {
 }
 
 func (c *CLIInterface) processInput(input string) {
-	if c.manager.IsMessageSubcommand(input) {
-		c.manager.ProcessSubCommand(input)
+	messageToProcess := input
+	isCommand := c.manager.IsMessageSubcommand(input)
+
+	userColor := color.New(color.FgCyan, color.Bold)
+	colonColor := color.New(color.FgYellow, color.Bold)
+
+	if isCommand {
+		var shouldProcessMessage bool
+		messageToProcess, shouldProcessMessage = c.manager.ProcessSubCommand(input)
+		if !shouldProcessMessage {
+			return // It was a normal command (like /info), don't proceed.
+		}
+		// If a command returns a message to process (i.e., from /edit), print it now.
+		fmt.Println(userColor.Sprint("User") + colonColor.Sprint(" : ") + messageToProcess)
+	} else {
+		// This is a regular message, not a command. Print it.
+		fmt.Println(userColor.Sprint("User") + colonColor.Sprint(" : ") + input)
+	}
+
+	// At this point, messageToProcess is either the original input (if not a command)
+	// or the content from the editor (if it was /edit).
+	if strings.TrimSpace(messageToProcess) == "" {
 		return
 	}
 
@@ -98,7 +112,7 @@ func (c *CLIInterface) processInput(input string) {
 
 	// Run the message processing in the main thread
 	c.manager.Status = "running"
-	c.manager.ProcessUserMessage(ctx, input)
+	c.manager.ProcessUserMessage(ctx, messageToProcess)
 	c.manager.Status = ""
 
 	close(done)

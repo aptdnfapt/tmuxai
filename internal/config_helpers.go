@@ -9,6 +9,7 @@ import (
 // AllowedConfigKeys defines the list of configuration keys that users are allowed to modify
 var AllowedConfigKeys = []string{
 	"agentic_mode",
+	"editor",
 	"max_capture_lines",
 	"max_context_size",
 	"wait_interval",
@@ -180,4 +181,13 @@ func (m *Manager) GetAgenticMode() bool {
 		}
 	}
 	return m.Config.AgenticMode
+}
+
+func (m *Manager) GetEditor() string {
+	if override, exists := m.SessionOverrides["editor"]; exists {
+		if val, ok := override.(string); ok {
+			return val
+		}
+	}
+	return m.Config.Editor
 }
