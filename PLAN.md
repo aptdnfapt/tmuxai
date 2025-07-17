@@ -57,7 +57,19 @@ This section outlines the key features and changes required to evolve `tmuxai` i
 
     #### we must add --restore and /session aka both of them  (((( not done yet )))
 
-### 3. Intelligent Project Comprehension (`RepoMap`) -- only for agentic
+### 3. Reliable Command Execution Tracking ✅ **DONE**
+
+- **Problem**: The previous method of waiting for commands relied on the AI model to manually append a static marker (`echo "TMUXAI:EXITCODE:$?"`) to the command string. This was fragile because:
+    - The AI could forget to add the marker.
+    - Shell-specific syntax (`$?` vs. `$status`) created complexity.
+    - A static marker could conflict with previous command outputs if left in the pane history.
+- **Solution**: Shift responsibility from the AI to the `tmuxai` application by implementing a structured, tool-based approach.
+    - **Agentic Mode**: A `wait="true"` attribute was added to the `<ExecCommand>` tag. The AI now signals its intent to wait, and `tmuxai` handles the implementation.
+    - **Normal Mode**: The `/prepare` command now flags a pane internally. Any command sent to that pane will automatically have the wait logic applied.
+    - **Unique Marker**: The application now appends a unique, randomly generated marker to the command (`echo "tmuxai waiting for command id: <random_id> exitcode:..."`). This prevents conflicts with old output and ensures `tmuxai` waits for the correct command to finish.
+    - This change makes the system more robust, simplifies the AI's task, and removes the need for the AI to know shell-specific syntax for exit codes.
+
+### 4. Intelligent Project Comprehension (`RepoMap`) -- only for agentic
 
 - **Goal**: Automatically provide the AI with a high-level understanding of the codebase by creating a "repo map," similar to the one used by `aider`. This process should be entirely automated and transparent to the user.
 - **Solution**: Implement a fully automatic, Git-aware `RepoMap` generation and caching system that runs in the background.
@@ -89,7 +101,7 @@ This section outlines the key features and changes required to evolve `tmuxai` i
 
 This approach aligns perfectly with the `aider` philosophy: it's a powerful, automated tool for the AI that "just works" in the background without any user or explicit AI intervention, providing crucial context for intelligent code assistance.
 
-### 4. Enhanced Output Formatting
+### 5. Enhanced Output Formatting
 
 - **Problem**: Current AI responses in the chat pane can be large, unformatted blocks of text that are hard to read.
 - **Solution**: Improve the presentation of AI output.
@@ -100,7 +112,7 @@ This approach aligns perfectly with the `aider` philosophy: it's a powerful, aut
     and reformating the designs using bubbles (last goal avoid for now )
   
 
-### 5. Refined Aider Integration with aider agentic md file . 
+### 6. Refined Aider Integration with aider agentic md file . 
 
 - **Goal**: Solidify `tmuxai`'s role as the orchestrator and `aider` as the file editor.
 - **Workflow**:
@@ -109,7 +121,7 @@ This approach aligns perfectly with the `aider` philosophy: it's a powerful, aut
     3.  After `aider` completes an edit, `tmuxai` takes over to run verification steps (builds, tests, linters).
     4.  This creates a clean separation of concerns: `tmuxai` for strategy, `aider` for execution.
 
-### 6. Future Vision: Native Tool Calling (Long-Term--dont bother with it right now )
+### 7. Future Vision: Native Tool Calling (Long-Term--dont bother with it right now )
 
 - **Problem**: The current tool-calling mechanism relies on parsing XML tags from the AI's text response. This is brittle and can lead to model "hallucinations" (e.g., inventing pane IDs) or formatting errors that break the parsing logic. It's also less efficient than using the native tool-calling features provided by modern AI APIs.
 - **Goal**: Transition from the current text-parsing method to a robust, native tool-calling framework. This will improve reliability, reduce errors, and align `tmuxai` with modern AI development best practices. The key challenge is that different AI providers (OpenAI, Google, Anthropic) have different, incompatible native tool-calling APIs.

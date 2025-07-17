@@ -25,6 +25,7 @@ type Manager struct {
 	WatchMode        bool
 	OS               string
 	SessionOverrides map[string]interface{} // session-only config overrides
+	PreparedPanes    map[string]bool
 	LastExecPaneID   string
 	SessionPath      string
 	isRestore        bool
@@ -69,6 +70,7 @@ func NewManager(cfg *config.Config, isRestore bool) (*Manager, error) {
 		ExecPane:         &system.TmuxPaneDetails{},
 		OS:               osName,
 		SessionOverrides: make(map[string]interface{}),
+		PreparedPanes:    make(map[string]bool),
 		LastExecPaneID:   "",
 		ReadFiles:        []string{},
 		SessionPath:      "",

@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -189,38 +190,39 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 			m.LastExecPaneID = targetPane.Id
 
 			targetPane.Refresh(m.GetMaxCaptureLines())
-			const endMarker = "TMUXAI:EXITCODE"
+			const endMarkerPrefix = "tmuxai waiting for command id"
 			originalCommand := command
 			commandToRun := command
 			shouldWait := false
 
-			// Agentic mode: AI is responsible for adding the marker.
+			// Agentic mode: AI decides whether to wait
 			if m.GetAgenticMode() {
-				if strings.Contains(commandToRun, endMarker) {
-					shouldWait = true
-				}
+				shouldWait = execCommand.Wait
 			} else { // Normal mode: check if the pane is prepared.
 				if targetPane.IsPrepared {
-					var markerCommand string
-					if targetPane.Shell == "fish" {
-						markerCommand = fmt.Sprintf(`; echo "%s:$status"`, endMarker)
-					} else {
-						markerCommand = fmt.Sprintf(`; echo "%s:$?"`, endMarker)
-					}
-					commandToRun += markerCommand
 					shouldWait = true
 				}
 			}
 
 			if shouldWait {
+				commandID := fmt.Sprintf("%05d", rand.Intn(100000))
 				// A synchronous command was requested. First, add the history for the *current* turn.
 				if !r.ExecPaneSeemsBusy && !r.NoComment {
 					m.Messages = append(m.Messages, currentMessage, responseMsg)
 				}
 
+				var exitCodeVar string
+				if targetPane.Shell == "fish" {
+					exitCodeVar = "$status"
+				} else {
+					exitCodeVar = "$?"
+				}
+				markerCommand := fmt.Sprintf(`; echo "%s: %s exitcode:%s"`, endMarkerPrefix, commandID, exitCodeVar)
+				commandToRun += markerCommand
+
 				// Execute the command and wait for it to complete.
 				system.TmuxSendCommandToPane(targetPane.Id, commandToRun, true)
-				result, err := m.ExecWaitCapture(targetPane)
+				result, err := m.ExecWaitCapture(targetPane, commandID)
 				if err != nil {
 					m.Println(fmt.Sprintf("Command cancelled or failed to wait: %v", err))
 					m.Status = ""

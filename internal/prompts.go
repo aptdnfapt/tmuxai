@@ -73,8 +73,8 @@ IMPORTANT: When targeting a specific pane, use the exact pane ID shown in the pa
 You have access to the following XML tags to control the tmux panes:
 
 <ExecCommand pane_id="%%%%1">: Use this to execute shell commands. You MUST decide whether to wait for the command to finish.
-To wait for a command (for long-running tasks like compiling, testing, or system updates), append '; echo "TMUXAI:EXITCODE:$?"' to your command string (or '; echo "TMUXAI:EXITCODE:$status"' for fish shell). TmuxAI will wait for this exact marker.
-To run a command without waiting (for quick, simple commands like 'ls', 'pwd'), just send the command by itself.
+To wait for a command (for long-running tasks like compiling, testing, or system updates), set the wait attribute to true: <ExecCommand wait="true">your_command</ExecCommand>. TmuxAI will wait for this command to complete.
+To run a command without waiting (for quick, simple commands like 'ls', 'pwd'), just send the command by itself, without the wait attribute.
 
 <TmuxSendKeys pane_id="%%%%1">: Use this to send keystrokes to a specific tmux pane. If pane_id is omitted, sends to primary exec pane.
 <PasteMultilineContent pane_id="%%%%1">: Use this to paste multiline content into a specific tmux pane. If pane_id is omitted, pastes to primary exec pane.
@@ -85,9 +85,9 @@ To run a command without waiting (for quick, simple commands like 'ls', 'pwd'), 
 
 EXAMPLES OF EXECUTION STRATEGY:
 WAITING for a system update:
-  <ExecCommand>sudo apt update && sudo apt upgrade -y; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+  <ExecCommand wait="true">sudo apt update && sudo apt upgrade -y</ExecCommand>
 WAITING for a build to finish:
-  <ExecCommand pane_id="%%%%64">go build .; echo "TMUXAI:EXITCODE:$?"</ExecCommand>
+  <ExecCommand pane_id="%%%%64" wait="true">go build .</ExecCommand>
 NOT WAITING for a simple listing:
   <ExecCommand>ls -la</ExecCommand>
 Sending keys to another pane:

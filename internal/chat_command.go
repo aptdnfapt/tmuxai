@@ -77,6 +77,9 @@ func (m *Manager) ProcessSubCommand(command string) {
 
 		if len(parts) > 1 {
 			paneID := parts[1]
+			if !strings.HasPrefix(paneID, "%") {
+				paneID = "%" + paneID
+			}
 			panes, _ := m.GetTmuxPanes()
 			found := false
 			for i, p := range panes {
@@ -111,6 +114,9 @@ func (m *Manager) ProcessSubCommand(command string) {
 
 		if len(parts) > 1 {
 			paneID := parts[1]
+			if !strings.HasPrefix(paneID, "%") {
+				paneID = "%" + paneID
+			}
 			panes, _ := m.GetTmuxPanes()
 			found := false
 			for i, p := range panes {
@@ -134,6 +140,7 @@ func (m *Manager) ProcessSubCommand(command string) {
 			m.Println("Error: Could not determine a target pane to unprepare.")
 			return
 		}
+		delete(m.PreparedPanes, targetPane.Id)
 		targetPane.IsPrepared = false
 		m.Println(fmt.Sprintf("Pane %s is no longer in prepared mode.", targetPane.Id))
 		return

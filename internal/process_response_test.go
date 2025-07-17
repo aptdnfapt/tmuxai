@@ -23,6 +23,22 @@ func TestParseAIResponse_WaitingForUserResponse(t *testing.T) {
 	}
 }
 
+// Test: ExecCommand with wait attribute
+func TestParseAIResponse_ExecCommandWithWait(t *testing.T) {
+	m := &Manager{}
+	input := `<ExecCommand wait="true" pane_id="%1">go build</ExecCommand>`
+	want := AIResponse{
+		ExecCommand: []ExecCommandInfo{{Command: "go build", PaneID: "%1", Wait: true}},
+	}
+	got, err := m.parseAIResponse(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
 // Test: Tag inside code block
 func TestParseAIResponse_RequestAccomplished_CodeBlock(t *testing.T) {
 	m := &Manager{}
@@ -260,7 +276,7 @@ func TestParseAIResponse_WithPaneID(t *testing.T) {
 	m := &Manager{}
 	input := `<ExecCommand pane_id="%1">ls -l</ExecCommand><TmuxSendKeys pane_id="%2">vim</TmuxSendKeys><PasteMultilineContent pane_id="%3">hello</PasteMultilineContent>`
 	want := AIResponse{
-		ExecCommand:           []ExecCommandInfo{{Command: "ls -l", PaneID: "%1"}},
+		ExecCommand:           []ExecCommandInfo{{Command: "ls -l", PaneID: "%1", Wait: false}},
 		SendKeys:              []SendKeysInfo{{Keys: "vim", PaneID: "%2"}},
 		PasteMultilineContent: []PasteInfo{{Content: "hello", PaneID: "%3"}},
 	}
@@ -278,7 +294,7 @@ func TestParseAIResponse_WithoutPaneID(t *testing.T) {
 	m := &Manager{}
 	input := `<ExecCommand>ls -l</ExecCommand><TmuxSendKeys>vim</TmuxSendKeys>`
 	want := AIResponse{
-		ExecCommand: []ExecCommandInfo{{Command: "ls -l", PaneID: ""}},
+		ExecCommand: []ExecCommandInfo{{Command: "ls -l", PaneID: "", Wait: false}},
 		SendKeys:    []SendKeysInfo{{Keys: "vim", PaneID: ""}},
 	}
 	got, err := m.parseAIResponse(input)
