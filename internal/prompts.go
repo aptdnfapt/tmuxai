@@ -2,8 +2,11 @@ package internal
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/alvinunreal/tmuxai/logger"
 )
 
 func (m *Manager) baseSystemPrompt() string {
@@ -117,8 +120,19 @@ You must pay close attention to the entire conversation history. The user may ha
 `)
 
 	// Custom additional prompt
-	if m.Config.Prompts.Agentic != "" {
-		builder.WriteString(m.Config.Prompts.Agentic)
+	agenticPrompt := m.Config.Prompts.Agentic
+	if m.Config.Prompts.AgenticPromptFile != "" {
+		content, err := os.ReadFile(m.Config.Prompts.AgenticPromptFile)
+		if err != nil {
+			logger.Error("Failed to read agentic prompt file '%s': %v", m.Config.Prompts.AgenticPromptFile, err)
+			m.Println(fmt.Sprintf("Warning: could not read agentic_prompt_file: %s. Error: %v", m.Config.Prompts.AgenticPromptFile, err))
+		} else {
+			agenticPrompt = string(content)
+		}
+	}
+
+	if agenticPrompt != "" {
+		builder.WriteString(agenticPrompt)
 	}
 
 	return ChatMessage{

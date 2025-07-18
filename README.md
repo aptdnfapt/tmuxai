@@ -439,7 +439,7 @@ Don't forget to give the project a star!
 Distributed under the Apache License. See [Apache License](https://github.com/alvinunreal/tmuxai/blob/main/LICENSE) for more information.
 ## Usage Instructions FOR aider + tmuxai 
 
-To use this prompt, add the content of ./aider_agentic_prompt.md to the TmuxAI configuration YAML under the agentic system prompt section. When users request coding assistance, TmuxAI will:
+To use this prompt, you can either set the `agentic_prompt_file` key in your `~/.config/tmuxai/config.yaml` to point to the absolute path of `aider_agentic_prompt.md`, or copy the content of that file into the `agentic` key. When users request coding assistance, TmuxAI will:
 
 1. Autonomously explore and understand the project
 2. Plan the required changes

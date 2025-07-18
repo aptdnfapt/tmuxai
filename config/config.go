@@ -42,6 +42,7 @@ type OpenRouterConfig struct {
 type PromptsConfig struct {
 	BaseSystem            string `mapstructure:"base_system"`
 	Agentic               string `mapstructure:"agentic"`
+	AgenticPromptFile     string `mapstructure:"agentic_prompt_file"`
 	ChatAssistant         string `mapstructure:"chat_assistant"`
 	ChatAssistantPrepared string `mapstructure:"chat_assistant_prepared"`
 	Watch                 string `mapstructure:"watch"`
