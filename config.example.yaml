@@ -187,6 +187,7 @@ blacklist_patterns:
 #   # Agentic prompt
 #   agentic: |
 #     xxx
+#   agentic_prompt_file: "" # Path to a file for the agentic prompt. Overrides 'agentic' if set.
 
 #   # Chat assistant prompt
 #   chat_assistant: |

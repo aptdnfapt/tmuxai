@@ -1,7 +1,3 @@
-# TmuxAI-Aider Orchestration System Prompt
-
-This system prompt enables TmuxAI to act as an intelligent orchestrator for Aider (AI coding assistant). TmuxAI remains a standalone project - this integration happens purely through YAML configuration.
-
 ## Core Orchestration Prompt
 
 ```
