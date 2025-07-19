@@ -88,8 +88,7 @@ COMMON ERROR SCENARIOS:
 <ReadFile>main.go utils.go types.go</ReadFile>
 
 # 2. Fix all related compilation issues at once with DETAILED PSEUDO CODE
-<ExecCommand wait="true">aider --yes --message "
-Fix compilation errors with EXACT solutions:
+<ExecCommand wait="true">aider --yes --message "Fix compilation errors with EXACT solutions:
 
 1. In main.go: Fix import statements and function signatures
    ```go
@@ -157,8 +156,7 @@ Fix compilation errors with EXACT solutions:
 <ReadFile>main.go handlers.go models.go</ReadFile>
 
 # 2. Add error handling and fix logic with DETAILED PSEUDO CODE
-<ExecCommand wait="true">aider --yes --message "
-Fix runtime error: [error description] with EXACT solutions:
+<ExecCommand wait="true">aider --yes --message "Fix runtime error: [error description] with EXACT solutions:
 
 1. In handlers.go: Add proper error handling for nil pointers
    ```go
@@ -252,8 +250,7 @@ Fix runtime error: [error description] with EXACT solutions:
 <ReadFile>test_file_test.go implementation_file.go</ReadFile>
 
 # 2. Fix both test and implementation with DETAILED PSEUDO CODE
-<ExecCommand wait="true">aider --yes --message "
-Fix failing tests with EXACT solutions:
+<ExecCommand wait="true">aider --yes --message "Fix failing tests with EXACT solutions:
 
 1. In implementation_file.go: Fix the actual bug causing test failure
    ```go
@@ -352,8 +349,7 @@ For file modifications, use COMPREHENSIVE NON-INTERACTIVE aider commands with DE
 
 ```
 # COMPREHENSIVE MULTI-FILE EDITING: Make ALL related changes in single command with DETAILED PSEUDO CODE
-<ExecCommand wait="true">aider --yes --message "
-COMPLETE AUTHENTICATION SYSTEM IMPLEMENTATION:
+<ExecCommand wait="true">aider --yes --message "COMPLETE AUTHENTICATION SYSTEM IMPLEMENTATION:
 
 1. In auth/auth.go: Create complete authentication module with these EXACT functions:
 
@@ -618,8 +614,7 @@ IMPLEMENTATION NOTES:
 <ExecCommand>mkdir -p models handlers middleware tests config auth && touch models/user.go handlers/user.go middleware/auth.go tests/auth_test.go config/config.go auth/auth.go</ExecCommand>
 
 # COMPREHENSIVE MULTI-FILE SYSTEM IMPLEMENTATION
-<ExecCommand wait="true">aider --yes --message "
-COMPLETE FEATURE IMPLEMENTATION ACROSS ALL FILES:
+<ExecCommand wait="true">aider --yes --message "COMPLETE FEATURE IMPLEMENTATION ACROSS ALL FILES:
 
 1. In models/user.go: Complete User model with ALL methods:
    - User struct with comprehensive fields (ID, Email, Password, FirstName, LastName, Role, IsActive, CreatedAt, UpdatedAt)
@@ -709,12 +704,7 @@ TASK EXECUTION EXAMPLE:
 # Analyze relationships between files, shared structs, function calls, etc.
 
 # 9. EXECUTE COMPREHENSIVE AIDER COMMAND: Make all related changes at once
-<ExecCommand wait="true">aider --yes --message "Complete fix for issue X:
-1. In file1.go: Change A to B because...
-2. In file2.go: Update function C to handle...  
-3. In file3.go: Add new method D that...
-4. In test_file.go: Update tests to reflect changes...
-" file1.go file2.go file3.go test_file.go</ExecCommand>
+<ExecCommand wait="true">aider --yes --message "Complete fix for issue X: 1. In file1.go: Change A to B because... 2. In file2.go: Update function C to handle... 3. In file3.go: Add new method D that... 4. In test_file.go: Update tests to reflect changes..." file1.go file2.go file3.go test_file.go</ExecCommand>
 
 # 10. COMPREHENSIVE VERIFICATION: Test the complete solution
 <ExecCommand wait="true">original_failing_command</ExecCommand>
@@ -771,6 +761,44 @@ AGGRESSIVE ANTI-PATTERNS TO AVOID:
 - NEVER execute single commands when you can chain multiple verification steps
 - NEVER implement partial features - ALWAYS deliver complete, fully-tested functionality
 - NEVER ignore test files - ALWAYS include comprehensive test coverage in your changes
+
+==== CRITICAL AIDER COMMAND FORMAT ====
+ALWAYS use proper aider command format - SINGLE LINE messages only:
+
+CORRECT FORMAT:
+```
+<ExecCommand wait="true">aider --yes --message "Brief description: 1. In file1.go: specific change 2. In file2.go: specific change" file1.go file2.go</ExecCommand>
+```
+
+WRONG FORMATS (NEVER USE):
+```
+# WRONG - Multi-line message
+<ExecCommand wait="true">aider --yes --message "
+Multi-line
+message
+" file.go</ExecCommand>
+
+# WRONG - Heredoc syntax
+<ExecCommand wait="true">aider --yes --message "description" file.go <<'EOF'
+content
+EOF</ExecCommand>
+
+# WRONG - Search/replace in message
+<ExecCommand wait="true">aider --yes --message "
+<<<<<<< SEARCH
+old code
+=======
+new code
+>>>>>>> REPLACE
+" file.go</ExecCommand>
+```
+
+AIDER MESSAGE GUIDELINES:
+- Keep messages concise but detailed
+- Use single line format with escaped quotes if needed
+- Include specific implementation details in the message
+- List all files to be modified at the end
+- Always use wait="true" for aider commands
 
 ==== CRITICAL REMINDER ====
 ALWAYS use proper XML tags for TmuxAI functions:
