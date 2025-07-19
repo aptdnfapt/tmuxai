@@ -102,6 +102,7 @@ This section outlines the key features and changes required to evolve `tmuxai` i
 This approach aligns perfectly with the `aider` philosophy: it's a powerful, automated tool for the AI that "just works" in the background without any user or explicit AI intervention, providing crucial context for intelligent code assistance.
 
 ### 5. Enhanced Output Formatting
+  - Context Usage Bar: A behavioral prompt to show token usage after each response. ✅ DONE
 
 - **Problem**: Current AI responses in the chat pane can be large, unformatted blocks of text that are hard to read.
 - **Solution**: Improve the presentation of AI output.

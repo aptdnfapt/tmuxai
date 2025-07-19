@@ -307,19 +307,7 @@ func (m *Manager) formatInfo() {
 	// Display context information section
 	fmt.Println(formatter.FormatSection("\nContext"))
 	formatLine("Messages", len(m.Messages))
-	var totalTokens int
-	for _, msg := range m.Messages {
-		totalTokens += system.EstimateTokenCount(msg.Content)
-	}
-
-	usagePercent := 0.0
-	if m.GetMaxContextSize() > 0 {
-		usagePercent = float64(totalTokens) / float64(m.GetMaxContextSize()) * 100
-	}
-	fmt.Print(formatter.LabelColor.Sprintf("%-*s", labelWidth, "Context Size~"))
-	fmt.Print("  ") // Two spaces for separation
-	fmt.Printf("%s\n", fmt.Sprintf("%d tokens", totalTokens))
-	fmt.Printf("%-*s  %s\n", labelWidth, "", formatter.FormatProgressBar(usagePercent, 10))
+	m.PrintContextUsage()
 	formatLine("Max Size", fmt.Sprintf("%d tokens", m.GetMaxContextSize()))
 
 	// Display tmux panes section

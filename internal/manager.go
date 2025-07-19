@@ -136,6 +136,26 @@ func (m *Manager) Println(msg string) {
 	fmt.Println(m.GetPrompt() + msg)
 }
 
+// PrintContextUsage shows current token usage as a subtle progress bar
+func (m *Manager) PrintContextUsage() {
+	var totalTokens int
+	for _, msg := range m.Messages {
+		totalTokens += system.EstimateTokenCount(msg.Content)
+	}
+
+	usagePercent := 0.0
+	if m.GetMaxContextSize() > 0 {
+		usagePercent = float64(totalTokens) / float64(m.GetMaxContextSize()) * 100
+	}
+
+	dimColor := color.New(color.FgHiBlack)
+	formatter := system.NewInfoFormatter()
+	fmt.Printf("%s %s\n", 
+		dimColor.Sprintf("%d tokens", totalTokens),
+		dimColor.Sprintf("[%s]", formatter.FormatProgressBar(usagePercent, 10)),
+	)
+}
+
 func (m *Manager) GetAIChatPrompt() string {
 	tmuxaiColor := color.New(color.FgGreen, color.Bold)
 	colonColor := color.New(color.FgYellow, color.Bold)
