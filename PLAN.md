@@ -43,7 +43,7 @@ This section outlines the key features and changes required to evolve `tmuxai` i
     - File content will **not** be appended to the persistent chat history (`m.Messages`).
     - This ensures the AI always works with the latest version of a file from disk and keeps the long-term history lean and relevant.
 
-### 2. Persistent, Project-Scoped Session Management ✅ **DONE**
+### 2. Persistent, Project-Scoped Session Management ✅ **DONE** (FULLY IMPLEMENTED)
 
 - **Problem**: Conversation history is lost on exit, preventing the continuation of complex tasks.
 - **Solution**: Implement a robust session management system.
@@ -55,7 +55,7 @@ This section outlines the key features and changes required to evolve `tmuxai` i
     - **`/session` Command and --resotre flag **: Introduce a `/session` command to list all available sessions (by title) and allow the user to switch between them.
     - **Automatic Restore**: When `tmuxai` is started in a directory, it shouldnt resotore anything auto matically unless tmuxai --restore was ran . only then it gong to restore the latest chat from the josns . normally running tmuxai or (--agentic) will result in a new session . and only can get the old session history back by now typing /sessions to choose session  . 
 
-    #### we must add --restore and /session aka both of them  (((( not done yet )))
+    #### we must add --restore and /session aka both of them  ✅ **DONE**
 
 ### 3. Reliable Command Execution Tracking ✅ **DONE**
 
@@ -69,7 +69,7 @@ This section outlines the key features and changes required to evolve `tmuxai` i
     - **Unique Marker**: The application now appends a unique, randomly generated marker to the command (`echo "tmuxai waiting for command id: <random_id> exitcode:..."`). This prevents conflicts with old output and ensures `tmuxai` waits for the correct command to finish.
     - This change makes the system more robust, simplifies the AI's task, and removes the need for the AI to know shell-specific syntax for exit codes.
 
-### 4. Intelligent Project Comprehension (`RepoMap`) -- only for agentic
+### 4. Intelligent Project Comprehension (`RepoMap`) -- only for agentic ✅ **DONE**
 
 - **Goal**: Automatically provide the AI with a high-level understanding of the codebase by creating a "repo map," similar to the one used by `aider`. This process should be entirely automated and transparent to the user.
 - **Solution**: Implement a fully automatic, Git-aware `RepoMap` generation and caching system that runs in the background.
@@ -112,7 +112,7 @@ This approach aligns perfectly with the `aider` philosophy: it's a powerful, aut
     and reformating the designs using bubbles (last goal avoid for now )
   
 
-### 6. Refined Aider Integration with aider agentic md file . 
+### 6. Refined Aider Integration with aider agentic md file . ✅ **DONE** 
 
 - **Goal**: Solidify `tmuxai`'s role as the orchestrator and `aider` as the file editor.
 - **Workflow**:
