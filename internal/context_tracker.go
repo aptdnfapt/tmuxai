@@ -1,16 +1,3 @@
-# Plan 02: Context State Tracker
-
-**Objective:** Create a new `ContextStateTracker` component to manage the `ContextState` and detect changes between messages. This involves creating a new file, `internal/context_tracker.go`, and adding the tracker to the `Manager` struct.
-
----
-
-## 🔧 **Technical Implementation**
-
-### **1. Create New File: `internal/context_tracker.go`**
-
-Create a new file to house the logic for the context state tracker.
-
-```go
 package internal
 
 import (
@@ -88,41 +75,3 @@ func hash(s string) string {
 	h.Write([]byte(s))
 	return hex.EncodeToString(h.Sum(nil))
 }
-
-```
-
-### **2. Integrate Tracker into the `Manager`**
-
-Modify the `Manager` struct in `internal/manager.go` to include the new `ContextStateTracker`.
-
-**File to Modify:** `internal/manager.go`
-
-**Add the `ContextTracker` field to the `Manager` struct:**
-
-```go
-// ... existing Manager fields
-	RepoMap          *RepoMapHandler
-	ContextTracker   *ContextStateTracker // Add this line
-}
-```
-
-**Initialize the tracker in the `NewManager` function:**
-
-```go
-// In NewManager, after the manager is initialized:
-	manager.ContextTracker = NewContextStateTracker()
-
-	// Session loading logic
-// ...
-```
-
----
-
-## ✅ **Validation**
-
-- The project should compile successfully after these changes (`go build .`).
-- The new `ContextStateTracker` is initialized but not yet used. No functional changes are expected.
-
-## ➡️ **Next Step**
-
-Proceed to `03-structured-message-builder.md` to create the component that will build the new, efficient message format using the state tracked by this new component.

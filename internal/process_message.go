@@ -31,15 +31,35 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		return false
 	}
 
-	repoMapContext := m.getRepoMapContext()
+	// 1. Increment message count for the new turn.
+	m.ContextTracker.IncrementMessageCount()
 
-	currentTmuxWindow := m.GetTmuxPanesInXml(m.Config)
-	execPaneEnv := ""
-	if !m.ExecPane.IsSubShell {
-		execPaneEnv = fmt.Sprintf("Keep in mind, you are working within the shell: %s and OS: %s", m.ExecPane.Shell, m.ExecPane.OS)
+	// 2. Update context state from all sources.
+	// Update Repo Map
+	repoMapContext, _ := m.RepoMap.GetMap()
+	m.ContextTracker.UpdateRepoMap(repoMapContext)
+
+	// Update Panes
+	panes, _ := m.GetTmuxPanes()
+	for _, pane := range panes {
+		paneContent, _ := system.TmuxCapturePane(pane.Id, m.GetMaxCaptureLines())
+		m.ContextTracker.UpdatePane(pane.Id, paneContent)
 	}
+
+	// Update Read Files (a placeholder for now, will be fully implemented later)
+	for _, filePath := range m.ReadFiles {
+		content, err := os.ReadFile(filePath)
+		if err == nil {
+			m.ContextTracker.UpdateFile(filePath, string(content))
+		}
+	}
+
+	// 3. Build the new structured message.
+	structuredMessage := m.MessageBuilder.BuildMessage(message)
+
+	// 4. Create the ChatMessage with the new structured content.
 	currentMessage := ChatMessage{
-		Content:   repoMapContext + currentTmuxWindow + "\n\n" + execPaneEnv + "\n\n" + message,
+		Content:   structuredMessage,
 		FromUser:  true,
 		Timestamp: time.Now(),
 	}

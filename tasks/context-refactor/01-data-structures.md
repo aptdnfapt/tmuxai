@@ -37,13 +37,14 @@ This struct will track the state of an individual piece of context (like a file,
 // Add this struct definition.
 
 type SectionState struct {
-    Content       string
-    LastChanged   int        // which message number it was last changed
-    Hash          string     // content hash for change detection
-    Size          int        // content size in tokens/bytes
-    Status        ItemStatus // ACTIVE, REMOVED, OLD_SESSION
-    Timestamp     time.Time  // when last updated
-    RemovedAt     time.Time  // when removed (if applicable)
+    PreviousContent string
+    Content         string
+    LastChanged     int        // which message number it was last changed
+    Hash            string     // content hash for change detection
+    Size            int        // content size in tokens/bytes
+    Status          ItemStatus // ACTIVE, REMOVED, OLD_SESSION
+    Timestamp       time.Time  // when last updated
+    RemovedAt       time.Time  // when removed (if applicable)
 }
 ```
 

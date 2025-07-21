@@ -1,49 +1,30 @@
 
-# TmuxAI Context Building Explained
+# TmuxAI Context Building: A High-Level Explanation
 
-This document explains how TmuxAI builds the context it sends to the AI model with each request. Understanding this process is crucial for customizing prompts and interpreting the AI's behavior.
+This document explains how TmuxAI efficiently builds the context it sends to the AI model with each request.
 
-The context is constructed in a specific order, with each new piece of information appended to the previous one. This creates a comprehensive snapshot of the user's environment and the ongoing conversation.
+## The Problem: Wasted Tokens
 
-## 1. The Base System Prompt
+Traditional AI assistants often re-send the entire terminal state (all visible content, files, etc.) with every single message. This is highly inefficient and leads to:
+-   **High API Costs**: Sending the same unchanged information repeatedly wastes tokens.
+-   **Slow Responses**: Large context payloads take longer for the AI to process.
+-   **Limited Conversation Length**: The context window fills up quickly with redundant data, forcing the conversation history to be cut short.
 
-The context begins with the **base system prompt**. This prompt provides the AI with its core instructions, defining its role, capabilities, and constraints. It sets the foundation for all interactions.
+## The Solution: Structured and State-Aware Context
 
-**Key elements of the base system prompt:**
+TmuxAI solves this problem by being "state-aware." It remembers what context the AI has already seen and only sends updates. This is achieved through a **structured context format** that uses sections and status markers.
 
-*   **Identity:** "You are TmuxAI assistant."
-*   **Core Function:** Explains that the AI lives in the user's tmux window, can see all panes, and can execute commands.
-*   **Rules:** Sets high-priority rules, such as using common sense, preferring shell commands, and using the `<ReadFile>` tag instead of `cat`.
-*   **Conciseness:** Emphasizes the importance of being concise and avoiding verbosity.
+### Key Concepts:
 
-## 2. Agentic or Chat Assistant Prompt
+1.  **Context State Tracker**: TmuxAI maintains an internal "memory" of the state of your panes, files, and repository map.
 
-Next, a more specific prompt is added based on the current mode:
+2.  **Change Detection**: Before sending a message, TmuxAI compares the current state of your terminal to its memory. It uses hashing to efficiently detect any changes.
 
-*   **Agentic Mode:** This prompt provides instructions for the AI to act as an autonomous agent. It details the pane targeting system, the use of XML tags for actions (`<ExecCommand>`, `<TmuxSendKeys>`, etc.), and the rules for combining them.
-*   **Chat Assistant Mode:** This prompt is used for more direct, conversational interactions. It outlines the available tools and provides examples of how to use them.
+3.  **Sending Only What's New**: The message sent to the AI is built intelligently:
+    *   **Unchanged Content**: If a pane or file hasn't changed, TmuxAI simply sends a marker like `[UNCHANGED since message 3]`. The AI is instructed to refer to its memory of that item from the previous turn. This is the biggest source of token savings.
+    *   **Updated Content**: If something has changed, only the new version is sent, marked as `[UPDATED]`.
+    *   **Pane Diffing**: For terminal panes, TmuxAI goes a step further and highlights only the new lines that have appeared, making it easy for the AI to see the result of the last command.
 
-## 3. The Repository Map (`repomap`)
+4.  **Session Restoration**: When you restore a previous session, its context (panes, files, conversation) is loaded into a special `----OLD-SESSION-DATA----` block. This gives the AI historical context without mixing it up with the current, active state of your terminal.
 
-If the `repomap` feature is enabled, TmuxAI generates a map of the current Git repository. This map is created using `ctags` and provides a high-level overview of the codebase, including file names and the symbols (functions, classes, etc.) within them.
-
-The `repomap` is injected into the context to give the AI a better understanding of the project structure.
-
-## 4. Current Tmux Window State
-
-TmuxAI captures the current state of the tmux window and formats it as an XML-like structure. This includes:
-
-*   **Pane Details:** The ID, title, and content of each pane in the window.
-*   **Pane Types:** Panes are categorized as `tmuxai_exec_pane`, `agentic_exec_pane`, or `read_only_pane`.
-
-This information allows the AI to "see" what the user sees and to target specific panes for actions.
-
-## 5. Recently Read Files
-
-When the user asks the AI to read a file using the `<ReadFile>` tag, the content of that file is added to the context for the next turn. This allows the AI to analyze file contents without cluttering the terminal with `cat` output.
-
-## 6. Conversation History
-
-Finally, the history of the current conversation is appended to the context. This includes all previous user messages and AI responses. The conversation history provides the AI with the necessary context to understand the user's intent and to carry on a coherent conversation.
-
-By combining these elements, TmuxAI creates a rich and detailed context that enables the AI to provide accurate, relevant, and helpful assistance.
+By combining these techniques, TmuxAI provides a rich, detailed, and up-to-date context to the AI while using a fraction of the tokens of a traditional approach.

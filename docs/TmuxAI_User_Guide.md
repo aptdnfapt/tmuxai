@@ -314,7 +314,13 @@ openrouter:
 
 ### Context Management (Squashing)
 
-As you work with TmuxAI, your conversation history grows. To manage token usage, TmuxAI implements "squashing":
+As you work with TmuxAI, your conversation history grows. To manage token usage and prevent context limits from being reached, TmuxAI uses two primary techniques:
+
+#### Efficient Context Tracking
+TmuxAI employs a sophisticated context tracking system. After the first message, it only sends content from panes or files that have been updated. This dramatically reduces the number of tokens sent with each message, saving costs and allowing for longer, more coherent conversations without losing important details from your terminal.
+
+#### Squashing
+When the conversation history still grows too large despite the efficient context tracking, TmuxAI uses "squashing" as a secondary mechanism. This process summarizes older parts of the conversation to free up space for new messages, ensuring the interaction can continue.
 
 - Check your current context utilization with `/info`
 - Manually trigger squashing with `/squash`

@@ -1,22 +1,9 @@
-# Plan 03: Structured Message Builder
-
-**Objective:** Create a `StructuredMessageBuilder` to construct the new, efficient message format using the state from the `ContextStateTracker`. This will replace the current ad-hoc message construction in `ProcessUserMessage`.
-
----
-
-## 
-**Technical Implementation**
-
-### **1. Create New File: `internal/message_builder.go`**
-
-This file will contain the logic for building the structured message.
-
-```go
 package internal
 
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -157,43 +144,3 @@ func (b *StructuredMessageBuilder) buildPanesSection() string {
 	}
 	return content.String()
 }
-
-```
-
-### **2. Update `Manager` to Use the Builder**
-
-Modify `internal/manager.go` to use the new `StructuredMessageBuilder`.
-
-**File to Modify:** `internal/manager.go`
-
-**Add the `MessageBuilder` to the `Manager` struct:**
-
-```go
-// ... existing Manager fields
-	ContextTracker   *ContextStateTracker
-	MessageBuilder   *StructuredMessageBuilder // Add this line
-}
-```
-
-**Initialize the builder in `NewManager`:**
-
-```go
-// In NewManager, after initializing the ContextTracker:
-	manager.MessageBuilder = NewStructuredMessageBuilder(manager)
-
-	// Session loading logic
-// ...
-```
-
----
-
-## 
-**Validation**
-
-- The project should compile successfully (`go build .`).
-- The `StructuredMessageBuilder` is created but not yet used to construct the final message. No functional changes are expected.
-
-## 
-**Next Step**
-
-Proceed to `04-integration-and-refactoring.md` to replace the old message creation logic with the new builder and fully integrate the context tracking system.

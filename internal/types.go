@@ -41,16 +41,16 @@ type ReadFileInfo struct {
 }
 
 type AIResponse struct {
-	Message                string              `json:"message"`
-	SendKeys               []SendKeysInfo      `json:"send_keys"`
-	ExecCommand            []ExecCommandInfo   `json:"exec_command"`
-	PasteMultilineContent  []PasteInfo         `json:"paste_multiline_content"`
-	ReadFile               []ReadFileInfo      `json:"read_file"`
-	RequestAccomplished    bool                `json:"request_accomplished"`
-	ExecPaneSeemsBusy      bool                `json:"exec_pane_seems_busy"`
-	WaitingForUserResponse bool                `json:"waiting_for_user_response"`
-	NoComment              bool                `json:"no_comment"`
-	CreateExecPane         bool                `json:"create_exec_pane"`
+	Message                string            `json:"message"`
+	SendKeys               []SendKeysInfo    `json:"send_keys"`
+	ExecCommand            []ExecCommandInfo `json:"exec_command"`
+	PasteMultilineContent  []PasteInfo       `json:"paste_multiline_content"`
+	ReadFile               []ReadFileInfo    `json:"read_file"`
+	RequestAccomplished    bool              `json:"request_accomplished"`
+	ExecPaneSeemsBusy      bool              `json:"exec_pane_seems_busy"`
+	WaitingForUserResponse bool              `json:"waiting_for_user_response"`
+	NoComment              bool              `json:"no_comment"`
+	CreateExecPane         bool              `json:"create_exec_pane"`
 }
 
 func (ai *AIResponse) String() string {
@@ -94,4 +94,44 @@ func (ai *AIResponse) String() string {
 		ai.NoComment,
 		ai.CreateExecPane,
 	)
+}
+
+type ItemStatus string
+
+const (
+	StatusActive     ItemStatus = "ACTIVE"
+	StatusNew        ItemStatus = "NEW"
+	StatusUpdated    ItemStatus = "UPDATED"
+	StatusUnchanged  ItemStatus = "UNCHANGED"
+	StatusRemoved    ItemStatus = "REMOVED"
+	StatusOldSession ItemStatus = "OLD_SESSION"
+)
+
+type SectionState struct {
+	PreviousContent string
+	Content         string
+	LastChanged     int // which message number it was last changed
+	Hash            string
+	Size            int // content size in tokens/bytes
+	Status          ItemStatus
+	Timestamp       time.Time // when last updated
+	RemovedAt       time.Time // when removed (if applicable)
+}
+
+type OldSessionData struct {
+	SessionName  string
+	SavedAt      time.Time
+	Files        map[string]SectionState // filepath -> state
+	Panes        map[string]SectionState // paneID -> state
+	Conversation []ChatMessage
+}
+
+type ContextState struct {
+	RepoMap     SectionState
+	Files       map[string]SectionState // filepath -> state
+	Panes       map[string]SectionState // paneID -> state
+	Prompts     SectionState
+	OldSession  *OldSessionData // pointer to restored session data
+	LastUpdate  int             // message number
+	CurrentTime time.Time       // current timestamp
 }

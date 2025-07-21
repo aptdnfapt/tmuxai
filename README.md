@@ -144,14 +144,9 @@ TmuxAI operates by default in "observe mode". Here's how the interaction flow wo
 
 1. **User types a message** in the Chat Pane.
 
-2. **TmuxAI captures context** from all visible panes in your current tmux window (excluding the Chat Pane itself). This includes:
+2. **TmuxAI captures and tracks context** from all visible panes. On the first message, it sends the full content of each pane.
 
-   - Current command with arguments
-   - Detected shell type
-   - User's operating system
-   - Current content of each pane
-
-3. **TmuxAI processes your request** by sending user's message, the current pane context, and chat history to the AI.
+3. **TmuxAI processes your request** using a structured message format. For subsequent messages, it only sends the content of panes that have changed, significantly reducing token usage and improving response times. Unchanged panes are marked as `[UNCHANGED]` and the AI uses its memory of their previous state.
 
 4. **The AI responds** with information, which may include a suggested command to run.
 
@@ -264,19 +259,14 @@ Watch Mode could be valuable for scenarios such as:
 
 ## Squashing
 
-As you work with TmuxAI, your conversation history grows, adding to the context
-provided to the AI model with each interaction. Different AI models have
-different context size limits and pricing structures based on token usage. To
-manage this, TmuxAI implements a simple context management feature called
-"squashing."
+As you work with TmuxAI, your conversation history grows. To manage token usage and prevent context limits from being reached, TmuxAI uses two primary techniques:
+
+### Efficient Context Tracking
+TmuxAI employs a sophisticated context tracking system. After the first message, it only sends content from panes or files that have been updated. This dramatically reduces the number of tokens sent with each message, saving costs and allowing for longer, more coherent conversations without losing important details from your terminal.
 
 ### What is Squashing?
 
-Squashing is TmuxAI's built-in mechanism for summarizing chat history to manage
-token usage.
-
-When your context grows too large, TmuxAI condenses previous
-messages into a more compact summary.
+When the conversation history still grows too large despite the efficient context tracking, TmuxAI uses "squashing" as a secondary mechanism. This process summarizes older parts of the conversation to free up space for new messages, ensuring the interaction can continue.
 
 You can check your current context utilization at any time using the `/info` command:
 

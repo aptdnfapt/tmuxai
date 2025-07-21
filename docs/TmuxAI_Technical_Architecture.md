@@ -37,7 +37,7 @@ Key structures and methods:
 - `NewManager()`: Initializes the manager with configuration
 - `Start()`: Starts the manager and CLI interface
 - `ProcessUserMessage()`: Processes user messages and sends them to the AI
-- `GetTmuxPanesInXml()`: Captures the current state of tmux panes
+- `ContextTracker` and `MessageBuilder`: These components work together to track the state of the terminal and build efficient, structured messages that only send updated content to the AI.
 
 ### 2. AI Client (`internal/ai_client.go`)
 
@@ -116,10 +116,10 @@ The System Integration components handle interaction with the tmux system. They:
 ## Data Flow
 
 1. **User Input → Processing**:
-   - User enters a message in the CLI interface
-   - CLI interface passes the message to the manager
-   - Manager captures context from tmux panes
-   - Manager formats the message with context for the AI
+   - User enters a message in the CLI interface.
+   - The `Manager`'s `ContextStateTracker` captures the current state of all panes and tracked files.
+   - The tracker compares the new state with the previous state to identify changes.
+   - The `StructuredMessageBuilder` constructs a message payload containing only the changed content, with appropriate status markers (`[UPDATED]`, `[UNCHANGED]`, etc.).
 
 2. **AI Request → Response**:
    - Manager sends the formatted message to the AI client
@@ -128,12 +128,9 @@ The System Integration components handle interaction with the tmux system. They:
    - AI client passes the response back to the manager
 
 3. **Response → Action**:
-   - Manager parses the AI response
-   - Manager extracts commands, keystrokes, and other actions
-   - Manager validates the response against guidelines
-   - Manager executes the actions in tmux panes
-   - Manager captures new context from tmux panes
-   - Manager continues the conversation with the AI
+   - The `Manager` parses the AI response, extracting commands and other actions.
+   - It executes the actions in the appropriate tmux panes.
+   - On the next user input, the data flow starts again from step 1, capturing the new state resulting from the AI's actions.
 
 ## Key Interfaces
 

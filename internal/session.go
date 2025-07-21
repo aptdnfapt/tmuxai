@@ -22,6 +22,7 @@ type SessionData struct {
 	ExecHistory   []CommandExecHistory `json:"exec_history"`
 	ReadFiles     []string             `json:"read_files"` // List of absolute paths of files read
 	PreparedPanes map[string]bool      `json:"prepared_panes"`
+	Panes         map[string]string    `json:"panes"`
 	Timestamp     time.Time            `json:"timestamp"`
 }
 
@@ -165,15 +166,42 @@ func (m *Manager) LoadSession(path string) error {
 		return fmt.Errorf("failed to unmarshal session data from %s: %w", path, err)
 	}
 
-	m.Messages = sessionData.Messages
-	m.ExecHistory = sessionData.ExecHistory
-	m.ReadFiles = sessionData.ReadFiles
-	m.SessionPath = path
-	if sessionData.PreparedPanes != nil {
-		m.PreparedPanes = sessionData.PreparedPanes
+	// Instead of overwriting the current state, load the session data
+	// into the OldSession field for context.
+	m.OldSession = &OldSessionData{
+		SessionName:  sessionData.Title,
+		SavedAt:      sessionData.Timestamp,
+		Conversation: sessionData.Messages,
+		Panes:        make(map[string]SectionState),
+		Files:        make(map[string]SectionState),
 	}
 
-	m.Println(fmt.Sprintf("Restored session: '%s'", sessionData.Title))
+	// Convert loaded pane content into SectionState
+	for id, content := range sessionData.Panes {
+		m.OldSession.Panes[id] = SectionState{
+			Content: content,
+			Status:  StatusOldSession,
+		}
+	}
+
+	// Convert loaded file paths into SectionState (content will be loaded on demand if needed)
+	for _, path := range sessionData.ReadFiles {
+		m.OldSession.Files[path] = SectionState{
+			Content: "", // Placeholder
+			Status:  StatusOldSession,
+		}
+	}
+
+	// The current session starts fresh.
+	m.Messages = []ChatMessage{}
+	m.ExecHistory = []CommandExecHistory{}
+	m.ReadFiles = []string{}
+	m.SessionPath = path // Keep track of the loaded session path to save over it.
+	if sessionData.PreparedPanes != nil {
+		m.PreparedPanes = sessionData.PreparedPanes // Restore prepared state
+	}
+
+	m.Println(fmt.Sprintf("Restored context from session: '%s'", sessionData.Title))
 	logger.Info("Session restored from %s", path)
 	return nil
 }
@@ -212,12 +240,20 @@ func (m *Manager) SaveSession() error {
 		}
 	}
 
+	// Capture pane contents at time of saving
+	panes, _ := m.GetTmuxPanes()
+	paneContents := make(map[string]string)
+	for _, pane := range panes {
+		paneContents[pane.Id] = pane.Content
+	}
+
 	sessionData := SessionData{
 		Title:         title,
 		Messages:      m.Messages,
 		ExecHistory:   m.ExecHistory,
 		ReadFiles:     m.ReadFiles,
 		PreparedPanes: m.PreparedPanes,
+		Panes:         paneContents,
 		Timestamp:     time.Now(),
 	}
 

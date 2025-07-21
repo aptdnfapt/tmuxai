@@ -46,7 +46,10 @@ file: /path/to/deleted.go [REMOVED] (removed at: 14:32:10)
 
 ----PANES----
 pane: %1 (tmuxai_exec_pane) [UPDATED] (last updated: 14:35:20)
-[pane content]
+[previous pane content]
+----NEW-CONTENT----
+[new lines that appeared since last message]
+----END-OF-NEW-CONTENT----
 
 pane: %2 (agentic_exec_pane) [UNCHANGED since message 5] (last updated: 14:20:45)
 

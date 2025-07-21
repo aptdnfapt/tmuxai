@@ -80,13 +80,13 @@ func isTextFile(filePath string) bool {
 		".sql", ".r", ".m", ".pl", ".lua", ".vim", ".emacs", ".cfg", ".conf", ".ini", ".toml",
 		".dockerfile", ".makefile", ".cmake", ".gradle", ".properties", ".log", ".csv", ".tsv",
 	}
-	
+
 	for _, textExt := range textExtensions {
 		if ext == textExt {
 			return true
 		}
 	}
-	
+
 	// Check for files without extension that are commonly text
 	baseName := strings.ToLower(filepath.Base(filePath))
 	textFiles := []string{
@@ -94,13 +94,13 @@ func isTextFile(filePath string) bool {
 		"procfile", "vagrantfile", "gruntfile", "gulpfile", "webpack", "package", "composer",
 		"go.mod", "go.sum",
 	}
-	
+
 	for _, textFile := range textFiles {
 		if baseName == textFile {
 			return true
 		}
 	}
-	
+
 	// Fallback to content check for files not matching known text extensions/names
 	file, err := os.Open(filePath)
 	if err != nil {

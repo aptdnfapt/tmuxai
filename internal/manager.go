@@ -30,6 +30,9 @@ type Manager struct {
 	SessionPath      string
 	isRestore        bool
 	RepoMap          *RepoMapHandler
+	ContextTracker   *ContextStateTracker
+	MessageBuilder   *StructuredMessageBuilder
+	OldSession       *OldSessionData
 }
 
 // NewManager creates a new manager agent
@@ -77,6 +80,9 @@ func NewManager(cfg *config.Config, isRestore bool) (*Manager, error) {
 		isRestore:        isRestore,
 	}
 
+	manager.ContextTracker = NewContextStateTracker()
+	manager.MessageBuilder = NewStructuredMessageBuilder(manager)
+
 	// Initialize RepoMap if in agentic mode
 	if manager.GetAgenticMode() {
 		manager.RepoMap = NewRepoMapHandler()
@@ -98,24 +104,6 @@ func NewManager(cfg *config.Config, isRestore bool) (*Manager, error) {
 
 	manager.InitExecPane()
 	return manager, nil
-}
-
-func (m *Manager) getRepoMapContext() string {
-	if m.RepoMap == nil || !m.RepoMap.IsEnabled() {
-		return ""
-	}
-
-	repoMap, err := m.RepoMap.GetMap()
-	if err != nil {
-		m.Println(fmt.Sprintf("Warning: Could not generate repo map: %v", err))
-		return ""
-	}
-
-	if repoMap != "" {
-		return "\n" + repoMap + "\n"
-	}
-
-	return ""
 }
 
 // Start starts the manager agent
@@ -150,7 +138,7 @@ func (m *Manager) PrintContextUsage() {
 
 	dimColor := color.New(color.FgHiBlack)
 	formatter := system.NewInfoFormatter()
-	fmt.Printf("%s %s\n", 
+	fmt.Printf("%s %s\n",
 		dimColor.Sprintf("%d tokens", totalTokens),
 		dimColor.Sprintf("[%s]", formatter.FormatProgressBar(usagePercent, 10)),
 	)
@@ -194,4 +182,3 @@ func (m *Manager) GetPrompt() string {
 	prompt += arrowColor.Sprint(" » ")
 	return prompt
 }
-

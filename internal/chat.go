@@ -10,7 +10,6 @@ import (
 	"github.com/fatih/color"
 )
 
-
 type CLIInterface struct {
 	manager     *Manager
 	initMessage string
@@ -119,4 +118,3 @@ func (c *CLIInterface) processInput(input string) {
 
 	signal.Stop(sigChan)
 }
-

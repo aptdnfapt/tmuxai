@@ -102,10 +102,16 @@ TmuxAI can read files to understand code and project structure:
 
 ### 4. Context Management
 
-To manage token usage with AI models, TmuxAI implements "squashing":
-- Summarizes chat history when context grows too large
-- Automatically triggers when context reaches 80% of maximum size
-- Can be manually triggered with the `/squash` command
+To manage token usage and ensure long, coherent conversations, TmuxAI uses a sophisticated context management system:
+
+#### Structured Context
+Instead of sending the full content of all panes and files with every message, TmuxAI sends a structured message that only includes content that has changed since the last turn. Unchanged items are marked as `[UNCHANGED]`, telling the AI to use its memory. This dramatically reduces token usage.
+
+#### Pane Diffing
+When a pane is updated, TmuxAI highlights only the new lines that have appeared, making it easy for the AI to see the result of the last command.
+
+#### Squashing
+When the conversation history still grows too large despite the structured context, TmuxAI uses "squashing" as a secondary mechanism. This process summarizes older parts of the conversation to free up space, ensuring the interaction can continue. Squashing can be triggered manually with the `/squash` command.
 
 ### 5. Multi-Pane Interaction (Agentic Mode)
 

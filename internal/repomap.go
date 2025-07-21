@@ -19,7 +19,7 @@ const repoMapCacheFile = "repomap.json"
 
 // RepoMapCache stores the cached data for the repo map.
 type RepoMapCache struct {
-	RepoMap    string            `json:"repo_map"`
+	RepoMap    string               `json:"repo_map"`
 	FileMtimes map[string]time.Time `json:"file_mtimes"`
 }
 

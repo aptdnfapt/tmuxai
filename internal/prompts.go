@@ -38,8 +38,11 @@ Before calling each tool, first explain why you are calling it.
 
 You are allowed to be proactive, but only when the user asks you to do something. You should strive to strike a balance between: (a) doing the right thing when asked, including taking actions and follow-up actions, and (b) not surprising the user by taking actions without asking. For example, if the user asks you how to approach something, you should do your best to answer their question first, and not immediately jump into calling a tool.
 
-DO NOT WRITE MORE TEXT AFTER THE TOOL CALLS IN A RESPONSE. You can wait until the next response to summarize the actions you've done.
-`
+DO NOT WRITE MORE TEXT AFTER THE TOOL CALLS IN A RESPONSE. You can wait until the next response to summarize the actions you've done.`
+
+	structuredContextExplanation := "\n==== STRUCTURED CONTEXT FORMAT ====\nYou will receive context in a structured format with headers and status markers. Here is how to interpret it:\n\n- **`----SECTION----` / `----END-OF-SECTION----`**: These delimit a context section (e.g., REPO-MAP, FILES, PANES).\n- **`[UPDATED]`**: This section or item has new content since the last message.\n- **`[UNCHANGED since message X]`**: The content for this section or item has not changed since message number X. You should refer to your memory of that message.\n- **`[REMOVED]`**: This item (e.g., a file or pane) has been deleted or closed.\n- **`[NEW]`**: This is the first time you are seeing this item.\n- **Timestamps**: Pay attention to the `(last modified: ...)` and `(last updated: ...)` timestamps to understand the timeline of events.\n- **`----CURRENT-TIME----`**: This section at the top of each message tells you the current time of the user's system.\n- **`----NEW-CONTENT----`**: In an `[UPDATED]` pane, this block highlights the new lines that have appeared since the last message.\n- **`----OLD-SESSION-DATA----`**: If you are in a restored session, this section provides the context (panes and conversation) from the previously saved state.\n\nYour task is to use this structured information to maintain a coherent understanding of the user's environment over time, without needing the full context repeated in every message. By referencing `[UNCHANGED]` markers, you can reduce redundant processing and focus only on what's new or `[UPDATED]`."
+	basePrompt += structuredContextExplanation
+
 	if m.Config.Prompts.BaseSystem != "" {
 		basePrompt = m.Config.Prompts.BaseSystem
 	}
