@@ -178,6 +178,177 @@ This approach provides a clear path to adopting more reliable native tool-callin
 
 ### 9. Adding a up arrow move to past input option for each session  . can make a file like on the tmuxai folder to have input.md for each session  ? and pack the sessions into dif folder ? ( may have better ways ?)
 
+### 10. Multi-Action Terminal Operations (Parallel Command Execution) 🚧 **PLANNED**
+
+- **Problem**: Currently, TmuxAI can only execute one action at a time. This creates inefficiency when multiple independent operations could be performed simultaneously, such as:
+  - Reading multiple files while also running grep commands in different directories
+  - Executing multiple grep searches across different folders simultaneously
+  - Running build commands in one pane while reading configuration files
+  - Performing parallel file operations across different project areas
+
+- **Goal**: Enable TmuxAI to execute multiple independent terminal operations simultaneously, dramatically improving workflow efficiency and reducing wait times.
+
+#### **Current Limitations:**
+```xml
+<!-- Current: Only ONE action type per response -->
+<ReadFile>file1.go file2.go file3.go</ReadFile>
+<!-- OR -->
+<ExecCommand>grep "pattern" folder1/</ExecCommand>
+<!-- Cannot do both simultaneously -->
+```
+
+#### **Proposed Solution: Multi-Action XML Tags**
+
+**Option A: Batch Action Container**
+```xml
+<BatchActions>
+  <ReadFile>main.go config.yaml utils.go</ReadFile>
+  <ExecCommand pane_id="%1">grep -r "TODO" src/</ExecCommand>
+  <ExecCommand pane_id="%2">find . -name "*.test.go" | head -10</ExecCommand>
+  <ExecCommand pane_id="%3">ls -la logs/ && du -sh logs/</ExecCommand>
+</BatchActions>
+```
+
+**Option B: Parallel Action Groups**
+```xml
+<ParallelActions>
+  <ActionGroup id="file_reading">
+    <ReadFile>main.go internal/manager.go</ReadFile>
+    <ReadFile>config/config.go system/tmux.go</ReadFile>
+  </ActionGroup>
+  <ActionGroup id="search_operations">
+    <ExecCommand pane_id="%1">grep -r "func.*Process" internal/</ExecCommand>
+    <ExecCommand pane_id="%2">find . -name "*.md" -exec grep -l "TODO" {} \;</ExecCommand>
+  </ActionGroup>
+</ParallelActions>
+```
+
+**Option C: Enhanced Individual Tags with Batch Support**
+```xml
+<!-- Multiple ExecCommand tags allowed in single response -->
+<ExecCommand pane_id="%1" batch_id="search_ops">grep -r "error" src/</ExecCommand>
+<ExecCommand pane_id="%2" batch_id="search_ops">grep -r "TODO" tests/</ExecCommand>
+<ExecCommand pane_id="%3" batch_id="search_ops">find . -name "*.log"</ExecCommand>
+<ReadFile batch_id="file_ops">main.go config.yaml</ReadFile>
+<ReadFile batch_id="file_ops">internal/types.go system/utils.go</ReadFile>
+```
+
+#### **Implementation Strategy:**
+
+**Phase 1: Parser Enhancement**
+- Modify `parseAIResponse()` in `process_response.go` to handle multiple action tags
+- Remove the "ONE TYPE of action tag per response" restriction
+- Add batch processing logic for simultaneous operations
+
+**Phase 2: Execution Engine**
+- Create `BatchExecutor` struct to manage parallel operations
+- Implement goroutine-based execution for independent commands
+- Add synchronization mechanisms for dependent operations
+- Handle pane management for multiple simultaneous commands
+
+**Phase 3: Prompt Updates**
+- Update agentic prompt to explain multi-action capabilities
+- Add examples of efficient batch operations
+- Modify critical priority rules to allow multiple action types
+
+**Phase 4: Advanced Features**
+- Add dependency management (Action B waits for Action A)
+- Implement resource-aware execution (don't overwhelm system)
+- Add progress tracking for long-running batch operations
+
+#### **Code Changes Required:**
+
+**1. Update `internal/types.go`:**
+```go
+type BatchAction struct {
+    ID          string
+    Actions     []ActionItem
+    Dependencies []string  // IDs of batches this depends on
+}
+
+type ActionItem struct {
+    Type    string  // "ExecCommand", "ReadFile", etc.
+    PaneID  string
+    Content string
+    Wait    bool
+}
+
+type AIResponse struct {
+    // ... existing fields ...
+    BatchActions []BatchAction
+    // OR keep existing fields but allow multiple
+}
+```
+
+**2. Update `internal/process_response.go`:**
+```go
+func (m *Manager) parseAIResponse(response string) (AIResponse, error) {
+    // Remove single-action restriction
+    // Add batch parsing logic
+    // Handle multiple ExecCommand/ReadFile tags
+}
+
+func (m *Manager) executeBatchActions(batches []BatchAction) error {
+    // Implement parallel execution
+    // Handle dependencies
+    // Manage pane allocation
+}
+```
+
+**3. Update `internal/prompts.go`:**
+```go
+// Remove this rule:
+// "You can only use ONE TYPE of action tag in your response"
+
+// Add new rules:
+// "You can use multiple action tags for parallel operations"
+// "Group related operations for efficiency"
+// "Use different panes for independent commands"
+```
+
+#### **Example Use Cases:**
+
+**Project Analysis:**
+```xml
+<ExecCommand pane_id="%1">find . -name "*.go" | wc -l</ExecCommand>
+<ExecCommand pane_id="%2">grep -r "TODO\|FIXME" . | wc -l</ExecCommand>
+<ExecCommand pane_id="%3">git log --oneline -10</ExecCommand>
+<ReadFile>README.md go.mod main.go</ReadFile>
+```
+
+**Multi-Directory Search:**
+```xml
+<ExecCommand pane_id="%1">grep -r "database" src/</ExecCommand>
+<ExecCommand pane_id="%2">grep -r "database" tests/</ExecCommand>
+<ExecCommand pane_id="%3">grep -r "database" config/</ExecCommand>
+<ReadFile>config/database.yaml src/db/connection.go</ReadFile>
+```
+
+**Build & Test Parallel:**
+```xml
+<ExecCommand pane_id="%1" wait="true">go build ./...</ExecCommand>
+<ExecCommand pane_id="%2" wait="true">go test ./... -v</ExecCommand>
+<ExecCommand pane_id="%3">golint ./...</ExecCommand>
+<ReadFile>go.mod go.sum</ReadFile>
+```
+
+#### **Benefits:**
+- **Efficiency**: Reduce total execution time by 60-80% for multi-step operations
+- **Productivity**: Enable complex workflows in single AI responses
+- **Resource Utilization**: Better use of multiple CPU cores and tmux panes
+- **User Experience**: Faster feedback and reduced waiting times
+
+#### **Implementation Priority:**
+1. **High**: Basic multi-ExecCommand support (different panes)
+2. **High**: Multi-ReadFile with multi-ExecCommand combination
+3. **Medium**: Batch action containers with dependency management
+4. **Low**: Advanced resource management and progress tracking
+
+#### **Backward Compatibility:**
+- Existing single-action responses continue to work
+- Gradual migration of prompts to use multi-action capabilities
+- Optional feature that can be enabled/disabled via configuration
+
 
 ### 10. need to fix the context . how its being sent and other stuff
     -- AVOIDING DUbe  FILES  on read 
@@ -185,6 +356,50 @@ This approach provides a clear path to adopting more reliable native tool-callin
     -- checking pwd on every pane and running rull path read commands 
 ### 11. better maping 
 ### 12. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
