@@ -126,22 +126,6 @@ This approach aligns perfectly with the `aider` philosophy: it's a powerful, aut
 
 - **Problem**: The current tool-calling mechanism relies on parsing XML tags from the AI's text response. This is brittle and can lead to model "hallucinations" (e.g., inventing pane IDs) or formatting errors that break the parsing logic. It's also less efficient than using the native tool-calling features provided by modern AI APIs.
 - **Goal**: Transition from the current text-parsing method to a robust, native tool-calling framework. This will improve reliability, reduce errors, and align `tmuxai` with modern AI development best practices. The key challenge is that different AI providers (OpenAI, Google, Anthropic) have different, incompatible native tool-calling APIs.
-
-### 8. Customizable AI Behavior via `prompt.md`
-- **Goal**: Allow users to customize AI behavior through natural language instructions.
-- **Implementation**:
-    - TmuxAI will automatically load a `prompt.md` file from the `.tmuxai` config directory if it exists
-    - The content will be appended to the system prompt, allowing for:
-        - Custom AI role-playing instructions
-        - Domain-specific knowledge
-        - Behavioral modifications
-        - Style preferences
-    - Changes take effect immediately when the file is modified, no restart required
-- **Solution**: Implement a provider-agnostic architecture using a strategy pattern. Instead of creating multiple binaries, we will have a single binary that can switch between different provider implementations at runtime based on the user's configuration.
-
-### 9. Adding a up arrow move to past input option for each session  . can make a file like on the tmuxai folder to have input.md for each session  ? and pack the sessions into dif folder ? ( may have better ways ?)
-### 10. 
-
 #### Implementation Steps:
 
 1.  **Define a Provider Interface**: Create a new `AIProvider` interface in Go. This interface will define a standard method for handling chat completions and tool calls, abstracting away the specifics of each provider's API.
@@ -182,6 +166,25 @@ This approach provides a clear path to adopting more reliable native tool-callin
 
 
 
+
+### 8. Customizable AI Behavior via `prompt.md`
+- **Goal**: Allow users to customize AI behavior through natural language instructions.
+- **Implementation**:
+    - TmuxAI will automatically load a `prompt.md` file from the `.tmuxai` of current dir . right now there is a .tmuxai dir being made on each dir where u run tmuxai . if prompt.md exits on that ./.tmuxai/prompt.md  i want it to be auto loaded on the satrt of the tmuxai when ran on that specific folder . also give a small gray text msg on the initail load taht its being loaded . just once at the start 
+    - The content will be appended to the system prompt, allowing for:
+        - Custom AI role-playing instructions
+        - Domain-specific knowledge
+        - Behavioral modifications
+
+### 9. Adding a up arrow move to past input option for each session  . can make a file like on the tmuxai folder to have input.md for each session  ? and pack the sessions into dif folder ? ( may have better ways ?)
+
+
+### 10. need to fix the context . how its being sent and other stuff
+    -- AVOIDING DUbe  FILES  on read 
+    -- AVOIDING dubing repo map
+    -- checking pwd on every pane and running rull path read commands 
+### 11. better maping 
+### 12. 
 
 
 
