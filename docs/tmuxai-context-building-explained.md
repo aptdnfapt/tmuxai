@@ -21,55 +21,61 @@ The new context system is powered by two main components:
 
 ## The Structured Message Format
 
-Here is an example of what the AI receives. Notice how it's broken into clear sections with status markers.
+The message is broken into clear sections. It separates static context (like files), historical context from previous sessions, and the live data from the current session.
 
 ```
-----CURRENT-TIME----
-Date: Mon, 21 Jul 2025 19:00:04 UTC
-----END-OF-CURRENT-TIME----
-
 ----REPO-MAP----
 [UNCHANGED since message 1]
 ----END-OF-REPO-MAP----
 
 ----FILES----
-file: /path/to/main.go [UPDATED] (last modified: 7:00PM)
+file: /path/to/main.go [UPDATED] (last modified: Mon, 21 Jul 2025 19:00:04 UTC)
 [... new file content ...]
 
 file: /path/to/config.yaml [UNCHANGED since message 3]
 ----END-OF-FILES----
 
-----PANES----
-pane: %8 [UPDATED] (last updated: 7:00PM)
-[... old pane content ...]
-----NEW-CONTENT----
-[... new lines that appeared in the pane ...]
-----END-OF-NEW-CONTENT----
-
-pane: %11 [UNCHANGED since message 2]
-----END-OF-PANES----
-
 ----OLD-SESSION-DATA----
 [Restored from: "feature-branch" - saved: Sun, 20 Jul 2025 14:30:00 UTC]
-... (content from a restored session) ...
+### [PREVIOUS PANES]
+====pane: %1====
+$ ls -l
+...previous output...
+====end of pane %1====
+
+### [PREVIOUS CHAT HISTORY]
+User: "What was in the directory?"
+AI: "It contained these files..."
 ----END-OF-OLD-SESSION-DATA----
 
-----CONVERSATION----
+----CURRENT-SESSION-DATA----
+[CURRENT TIME: Mon, 21 Jul 2025 19:00:04 UTC]
+
+====pane: %1 [UPDATED]====
+$ ls -l
+...previous output...
+___NEW-CONTENT___
+$ git status
+...git status output...
+____END-OF-NEW-CONTENT____
+====end of pane %1====
+
+====pane: %11 [UNCHANGED since message 2]====
+
+[CURRENT CHAT HISTORY]
 ... (the user's actual message) ...
-----END-OF-CONVERSATION----
+----END-OF-CURRENT-SESSION-DATA----
 ```
 
 ### How to Interpret the Format
 
 The system prompt explains this format to the AI:
 
--   **`----SECTION----`**: Delimits different types of context (e.g., `PANES`, `FILES`).
--   **`[NEW]`**: The first time an item (like a file or pane) is seen.
--   **`[UPDATED]`**: The item has changed since the last message. The new content is provided.
--   **`[UNCHANGED since message X]`**: The item has not changed. The AI is instructed to use its memory of the content from message number `X`. **This is the primary mechanism for saving tokens.**
--   **`[REMOVED]`**: An item has been closed or deleted.
--   **`----NEW-CONTENT----`**: For updated panes, this special block highlights only the new lines that have appeared, making it easy for the AI to see what just happened.
--   **`----OLD-SESSION-DATA----`**: When a session is restored, the context from the previous session is loaded into this block as a read-only reference.
+-   **`----SECTION----`**: Delimits different types of context.
+-   **`[NEW]`**, **`[UPDATED]`**, **`[UNCHANGED since message X]`**, **`[REMOVED]`**: These status markers apply to static context like `REPO-MAP` and `FILES`. `[UNCHANGED]` is the primary mechanism for saving tokens.
+-   **`----OLD-SESSION-DATA----`**: When a session is restored, the full pane content and conversation from the previous session are loaded here as a read-only historical reference.
+-   **`----CURRENT-SESSION-DATA----`**: This block contains the live, dynamic state of the current terminal session.
+-   **`___NEW-CONTENT___`**: Inside a pane in the `CURRENT-SESSION-DATA` block, this special marker contains **only** the new lines that have appeared since the last message. In the next turn, this "new" content will become part of the pane's base content, and a new `___NEW-CONTENT___` block will show the next update. This creates a "rolling" view of the pane's history.
 -   **Timestamps**: Each item includes a timestamp of its last modification, helping the AI understand the sequence of events.
 
 ## Step-by-Step Context Building Process

@@ -21,70 +21,67 @@ Total: 3053 tokens (2000+ tokens wasted)
 ## 🚀 **Proposed Solution: Structured Message Format**
 
 ### **New Message Structure:**
-```
-----CURRENT-TIME----
-Date: July 21, 2024 - Time: 14:35:22
-----END-OF-CURRENT-TIME----
+The new format separates static context (Repo Map, Files), historical context from previous sessions, and the current session's dynamic data.
 
+```
 ----PROMPTS----
 [System prompts and instructions]
 ----END-OF-PROMPTS----
 
 ----REPO-MAP----
 [Project structure and file tree]
-[UPDATED] or [UNCHANGED since message X]
+[NEW], [UPDATED], or [UNCHANGED since message X]
 ----END-OF-REPO-MAP----
 
 ----FILES----
 file: /path/to/main.go [UPDATED] (last modified: 14:30:15)
 [file content]
-
-file: /path/to/config.yaml [UNCHANGED since message 3] (last modified: 12:45:30)
-
-file: /path/to/deleted.go [REMOVED] (removed at: 14:32:10)
+file: /path/to/config.yaml [UNCHANGED since message 3]
 ----END-OF-FILES----
 
-----PANES----
-pane: %1 (tmuxai_exec_pane) [UPDATED] (last updated: 14:35:20)
-----NEW-CONTENT----
-[new lines that appeared since last message]
-----END-OF-NEW-CONTENT----
-
-pane: %2 (agentic_exec_pane) [UNCHANGED since message 5] (last updated: 14:20:45)
-
-pane: %3 (old_session) [REMOVED] (session ended: 14:25:00)
-----END-OF-PANES----
-
 ----OLD-SESSION-DATA----
-[Restored from: "feature-branch-work" - saved: July 19, 2024 12:45 PM]
+[Restored from: "feature-branch-work" - saved: Sun, 20 Jul 2025 14:30:00 UTC]
 
-pane: %1 [OLD SESSION] (from: July 19, 12:45 PM)
-[old pane content from restored session]
+### [Turn 1 - saved: 14:31:00 UTC]
+====pane: %1====
+$ ls -l
+...output...
+====end of pane %1====
 
-pane: %2 [OLD SESSION] (from: July 19, 12:45 PM)
-[more old content]
-
-[OLD CONVERSATION HISTORY]
-User: "Run the tests"
-AI: "I'll run the test suite..."
-User: "Check results"
-AI: "Tests passed with 85% coverage..."
+[CHAT]
+User: "List the files"
+AI: "Okay, running ls -l"
+### [End of Turn 1]
 ----END-OF-OLD-SESSION-DATA----
 
-----CONVERSATION----
-[Only the current conversation history]
+----CURRENT-SESSION-DATA----
+[CURRENT TIME: Mon, 21 Jul 2025 19:00:04 UTC]
+
+====pane: %1 [UPDATED]====
+$ ls -l
+...output...
+$ cat main.go
+...main.go content...
+___NEW-CONTENT___
+$ git status
+...git status output...
+____END-OF-NEW-CONTENT____
+====end of pane %1====
+
+====pane: %2 [UNCHANGED since message 5]====
+
+[CURRENT CHAT HISTORY]
 User: "What's in this project?"
 AI: "I can see this is a Go project..."
 User: "Run the tests"
-----END-OF-CONVERSATION----
+----END-OF-CURRENT-SESSION-DATA----
 ```
 
 ### **Smart Change Tracking:**
-- **`[UPDATED]`** = Section has new content since last message
-- **`[UNCHANGED since message X]`** = Refer to content from message X
-- **`[REMOVED]`** = Item no longer exists (files deleted, sessions ended)
-- **`[NEW]`** = First time this item appears
-- **`[OLD SESSION]`** = Content from restored session (reference only)
+- **`[UPDATED]`**, **`[UNCHANGED since message X]`**, **`[REMOVED]`**, **`[NEW]`**: These markers apply to static items like `REPO-MAP` and `FILES`.
+- **`----OLD-SESSION-DATA----`**: A read-only block containing the complete pane content and conversation from a restored session. This provides historical context.
+- **`----CURRENT-SESSION-DATA----`**: Contains the live state of the current session.
+- **Pane Content Model**: Panes in the current session display their full content. For `[UPDATED]` panes, a `___NEW-CONTENT___` block highlights only the lines that have appeared since the last turn. In the next turn, this "new" content becomes part of the pane's base content.
 
 ### **Timestamp System:**
 - **Current time** shown at top of every message

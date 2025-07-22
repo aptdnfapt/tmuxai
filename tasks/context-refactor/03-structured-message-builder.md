@@ -17,6 +17,7 @@ package internal
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -34,13 +35,18 @@ func NewStructuredMessageBuilder(manager *Manager) *StructuredMessageBuilder {
 func (b *StructuredMessageBuilder) BuildMessage(userInput string) string {
 	var buf bytes.Buffer
 
-	b.appendSection(&buf, "CURRENT-TIME", b.buildTimeSection)
+	// Static context sections that are always present
 	b.appendSection(&buf, "PROMPTS", b.buildPromptsSection)
-	b.appendSection(&buf, "OLD-SESSION-DATA", b.buildOldSessionSection)
 	b.appendSection(&buf, "REPO-MAP", b.buildRepoMapSection)
 	b.appendSection(&buf, "FILES", b.buildFilesSection)
-	b.appendSection(&buf, "PANES", b.buildPanesSection)
-	b.appendSection(&buf, "CONVERSATION", func() string { return userInput })
+
+	// Historical context from a restored session
+	b.appendSection(&buf, "OLD-SESSION-DATA", b.buildOldSessionSection)
+
+	// Live context from the current, active session
+	b.appendSection(&buf, "CURRENT-SESSION-DATA", func() string {
+		return b.buildCurrentSessionSection(userInput)
+	})
 
 	return buf.String()
 }
@@ -55,46 +61,10 @@ func (b *StructuredMessageBuilder) appendSection(buf *bytes.Buffer, title string
 	}
 }
 
-// buildTimeSection creates the timestamp header.
-func (b *StructuredMessageBuilder) buildTimeSection() string {
-	return fmt.Sprintf("Date: %s\n", b.Manager.ContextTracker.CurrentState.CurrentTime.Format(time.RFC1123))
-}
-
-// buildPromptsSection builds the prompts section.
+// buildPromptsSection will contain system prompts.
 func (b *StructuredMessageBuilder) buildPromptsSection() string {
 	// This will be implemented in a later step. For now, it returns an empty string.
 	return ""
-}
-
-// buildOldSessionSection builds the section for restored session data.
-func (b *StructuredMessageBuilder) buildOldSessionSection() string {
-	if b.Manager.OldSession == nil {
-		return ""
-	}
-
-	var content bytes.Buffer
-	oldSession := b.Manager.OldSession
-
-	content.WriteString(fmt.Sprintf("[Restored from: \"%s\" - saved: %s]\n\n", oldSession.SessionName, oldSession.SavedAt.Format(time.RFC1123)))
-
-	// Old Panes
-	for id, state := range oldSession.Panes {
-		content.WriteString(fmt.Sprintf("pane: %s [OLD SESSION] (from: %s)\n%s\n", id, oldSession.SavedAt.Format(time.Kitchen), state.Content))
-	}
-
-	// Old Conversation
-	if len(oldSession.Conversation) > 0 {
-		content.WriteString("\n[OLD CONVERSATION HISTORY]\n")
-		for _, msg := range oldSession.Conversation {
-			role := "AI"
-			if msg.FromUser {
-				role = "User"
-			}
-			content.WriteString(fmt.Sprintf("%s: \"%s\"\n", role, msg.Content))
-		}
-	}
-
-	return content.String()
 }
 
 // buildRepoMapSection builds the repo map section with status.
@@ -116,7 +86,7 @@ func (b *StructuredMessageBuilder) buildFilesSection() string {
 	for path, state := range b.Manager.ContextTracker.CurrentState.Files {
 		switch state.Status {
 		case StatusNew, StatusUpdated:
-			content.WriteString(fmt.Sprintf("file: %s [%s] (last modified: %s)\n%s\n", path, state.Status, state.Timestamp.Format(time.Kitchen), state.Content))
+			content.WriteString(fmt.Sprintf("file: %s [%s] (last modified: %s)\n%s\n", path, state.Status, state.Timestamp.Format(time.RFC1123), state.Content))
 		case StatusUnchanged:
 			content.WriteString(fmt.Sprintf("file: %s [%s since message %d]\n", path, state.Status, state.LastChanged))
 		case StatusRemoved:
@@ -126,40 +96,79 @@ func (b *StructuredMessageBuilder) buildFilesSection() string {
 	return content.String()
 }
 
-// buildPanesSection builds the panes section with status for each pane.
-func (b *StructuredMessageBuilder) buildPanesSection() string {
+// buildOldSessionSection builds the section for restored session data.
+func (b *StructuredMessageBuilder) buildOldSessionSection() string {
+	if b.Manager.OldSession == nil {
+		return ""
+	}
+
 	var content bytes.Buffer
-	for id, state := range b.Manager.ContextTracker.CurrentState.Panes {
-		switch state.Status {
-		case StatusNew:
-			content.WriteString(fmt.Sprintf("pane: %s [%s] (last updated: %s)\n%s\n", id, state.Status, state.Timestamp.Format(time.Kitchen), state.Content))
-		case StatusUpdated:
-			var paneContent string
-			// Best-effort diff for appended content
-			if state.PreviousContent != "" && strings.HasPrefix(state.Content, state.PreviousContent) {
-				newPart := strings.TrimSpace(strings.TrimPrefix(state.Content, state.PreviousContent))
-				// Only show diff if there is new content.
-				if newPart != "" {
-					paneContent = fmt.Sprintf("----NEW-CONTENT----\n%s\n----END-OF-NEW-CONTENT----", newPart)
-				} else {
-					// The pane was updated, but our simple diff logic didn't find any new appended content.
-					// To avoid sending the whole duplicated pane, we send an empty content. The AI sees [UPDATED] and knows *something* changed.
-					paneContent = ""
-				}
-			} else {
-				// Can't diff cleanly (e.g. content removed) or no previous content, just send the whole thing.
-				paneContent = state.Content
-			}
-			content.WriteString(fmt.Sprintf("pane: %s [%s] (last updated: %s)\n%s\n", id, state.Status, state.Timestamp.Format(time.Kitchen), paneContent))
-		case StatusUnchanged:
-			content.WriteString(fmt.Sprintf("pane: %s [%s since message %d]\n", id, state.Status, state.LastChanged))
-		case StatusRemoved:
-			content.WriteString(fmt.Sprintf("pane: %s [%s]\n", id, state.Status))
+	oldSession := b.Manager.OldSession
+	content.WriteString(fmt.Sprintf("[Restored from: \"%s\" - saved: %s]\n\n", oldSession.SessionName, oldSession.SavedAt.Format(time.RFC1123)))
+
+	// For simplicity in this plan, we'll just show the final state of old panes and the conversation.
+	// A more advanced implementation could show turn-by-turn history.
+	content.WriteString("### [PREVIOUS PANES]\n")
+	for id, state := range oldSession.Panes {
+		content.WriteString(fmt.Sprintf("====pane: %s====\n%s\n====end of pane %s====\n", id, state.Content, id))
+	}
+
+	content.WriteString("\n### [PREVIOUS CHAT HISTORY]\n")
+	for _, msg := range oldSession.Conversation {
+		role := "AI"
+		if msg.FromUser {
+			role = "User"
 		}
+		content.WriteString(fmt.Sprintf("%s: %s\n", role, msg.Content))
 	}
 	return content.String()
 }
 
+// buildCurrentSessionSection constructs the block for the live, current session.
+func (b *StructuredMessageBuilder) buildCurrentSessionSection(userInput string) string {
+	var content bytes.Buffer
+
+	// Add current time
+	content.WriteString(fmt.Sprintf("[CURRENT TIME: %s]\n\n", b.Manager.ContextTracker.CurrentState.CurrentTime.Format(time.RFC1123)))
+
+	// Add Panes
+	for id, state := range b.Manager.ContextTracker.CurrentState.Panes {
+		switch state.Status {
+		case StatusNew:
+			content.WriteString(fmt.Sprintf("====pane: %s [%s]====\n___NEW-CONTENT___\n%s\n____END-OF-NEW-CONTENT____\n====end of pane %s====\n", id, state.Status, state.Content, id))
+		case StatusUpdated:
+			var paneContent string
+			// Best-effort diff for appended content
+			if state.PreviousContent != "" && strings.HasPrefix(state.Content, state.PreviousContent) {
+				newPart := strings.TrimPrefix(state.Content, state.PreviousContent)
+				paneContent = fmt.Sprintf("%s___NEW-CONTENT___\n%s\n____END-OF-NEW-CONTENT____", state.PreviousContent, newPart)
+			} else {
+				// Can't diff cleanly, send the whole thing with a clear NEW content block
+				paneContent = fmt.Sprintf("%s___NEW-CONTENT___\n%s\n____END-OF-NEW-CONTENT____", state.PreviousContent, state.Content)
+			}
+			content.WriteString(fmt.Sprintf("====pane: %s [%s]====\n%s\n====end of pane %s====\n", id, state.Status, paneContent, id))
+		case StatusUnchanged:
+			content.WriteString(fmt.Sprintf("====pane: %s [%s since message %d]====\n", id, state.Status, state.LastChanged))
+		case StatusRemoved:
+			content.WriteString(fmt.Sprintf("====pane: %s [%s]====\n", id, state.Status))
+		}
+	}
+
+	// Add Current Conversation
+	content.WriteString("\n[CURRENT CHAT HISTORY]\n")
+	// This part needs access to the current message history in the manager
+	for _, msg := range b.Manager.Messages {
+		role := "AI"
+		if msg.FromUser {
+			role = "User"
+		}
+		content.WriteString(fmt.Sprintf("%s: %s\n", role, msg.Content))
+	}
+	// Add the latest user input
+	content.WriteString(fmt.Sprintf("User: %s\n", userInput))
+
+	return content.String()
+}
 ```
 
 ### **2. Update `Manager` to Use the Builder**
