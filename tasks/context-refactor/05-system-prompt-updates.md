@@ -26,7 +26,7 @@ You will receive context in a structured format with headers and status markers.
 - **`[NEW]`**: This is the first time you are seeing this item.
 - **Timestamps**: Pay attention to the `(last modified: ...)` and `(last updated: ...)` timestamps to understand the timeline of events.
 - **`----CURRENT-TIME----`**: This section at the top of each message tells you the current time of the user's system.
-- **`----NEW-CONTENT----`**: In an `[UPDATED]` pane, this block highlights the new lines that have appeared since the last message.
+- **`----NEW-CONTENT----`**: In an `[UPDATED]` pane, this block contains **only** the new lines that have appeared since the last message. The previous content is not repeated.
 - **`----OLD-SESSION-DATA----`**: If you are in a restored session, this section provides the context (panes and conversation) from the previously saved state.
 
 Your task is to use this structured information to maintain a coherent understanding of the user's environment over time, without needing the full context repeated in every message. By referencing `[UNCHANGED]` markers, you can reduce redundant processing and focus only on what's new or `[UPDATED]`.

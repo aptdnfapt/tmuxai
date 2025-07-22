@@ -125,14 +125,17 @@ func (b *StructuredMessageBuilder) buildPanesSection() string {
 			// Best-effort diff for appended content
 			if state.PreviousContent != "" && strings.HasPrefix(state.Content, state.PreviousContent) {
 				newPart := strings.TrimSpace(strings.TrimPrefix(state.Content, state.PreviousContent))
-				// Only show diff if there is new content, otherwise show full content
+				// Only show diff if there is new content
 				if newPart != "" {
-					paneContent = fmt.Sprintf("%s\n----NEW-CONTENT----\n%s\n----END-OF-NEW-CONTENT----", state.PreviousContent, newPart)
+					paneContent = fmt.Sprintf("----NEW-CONTENT----\n%s\n----END-OF-NEW-CONTENT----", newPart)
 				} else {
-					paneContent = state.Content
+					// The pane was updated, but our simple diff logic didn't find any new appended content.
+					// This can happen with whitespace changes or other minor edits.
+					// To avoid sending the whole duplicated pane, we send an empty content. The AI sees [UPDATED] and knows *something* changed.
+					paneContent = ""
 				}
 			} else {
-				// Can't diff cleanly or no previous content, just send the whole thing.
+				// Can't diff cleanly (e.g. content removed) or no previous content, just send the whole thing.
 				paneContent = state.Content
 			}
 			content.WriteString(fmt.Sprintf("pane: %s [%s] (last updated: %s)\n%s\n", id, state.Status, state.Timestamp.Format(time.Kitchen), paneContent))

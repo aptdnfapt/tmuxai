@@ -42,6 +42,9 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 	// Update Panes
 	panes, _ := m.GetTmuxPanes()
 	for _, pane := range panes {
+		if pane.IsTmuxAiPane {
+			continue
+		}
 		paneContent, _ := system.TmuxCapturePane(pane.Id, m.GetMaxCaptureLines())
 		m.ContextTracker.UpdatePane(pane.Id, paneContent)
 	}
@@ -363,7 +366,7 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 	// Process ReadFile requests
 	if len(r.ReadFile) > 0 {
-		// A ReadFile request is also synchronous and requires a new turn.
+		// A ReadFile request is synchronous and requires a new turn.
 		if !r.ExecPaneSeemsBusy && !r.NoComment {
 			m.Messages = append(m.Messages, currentMessage, responseMsg)
 		}
@@ -397,19 +400,15 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 		if len(filesToRead) == 0 {
 			m.Println("No valid files found to read.")
-			// Continue the loop, but don't re-process with new context as none was added.
-			return false
+			return false // No files read, so no new turn.
 		}
 
 		// 2. Ask for confirmation for the batch
 		if m.GetReadFileConfirm() {
-			// Print the file list separately to avoid issues with multiline prompts in readline.
 			fmt.Printf("Read %d file(s)? (%d bytes total)\n", len(filesToRead), totalBytes)
 			for _, fileLine := range fileListForPrompt {
 				fmt.Printf(" - %s\n", fileLine)
 			}
-
-			// Now, ask for confirmation with a simple, single-line prompt.
 			confirmed, _ := m.confirmedToExec("", "Read files?", false)
 			if !confirmed {
 				m.Println("File reading cancelled by user.")
@@ -417,8 +416,8 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 			}
 		}
 
-		// 3. Read confirmed files and build content
-		var fileContents []string
+		// 3. Read confirmed files and update context tracker
+		var fileNamesForPrompt []string
 		filesAdded := 0
 		for _, file := range filesToRead {
 			content, err := os.ReadFile(file.AbsPath)
@@ -426,8 +425,11 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 				m.Println(fmt.Sprintf("Error reading file %s: %v", file.Info.FilePath, err))
 				continue
 			}
-
 			logger.Info("Read file: %s (%d bytes)", file.AbsPath, len(content))
+
+			// Update the context tracker immediately with the new file content.
+			// This makes it available in the ----FILES---- section.
+			m.ContextTracker.UpdateFile(file.AbsPath, string(content))
 
 			// Add to session's read file list if not already there
 			isAlreadyRead := false
@@ -441,21 +443,17 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 				m.ReadFiles = append(m.ReadFiles, file.AbsPath)
 			}
 
-			fileHeader := fmt.Sprintf("\n--- File: %s ---\n", file.Info.FilePath)
-			fileFooter := fmt.Sprintf("\n--- End of %s ---\n", file.Info.FilePath)
-			fileContents = append(fileContents, fileHeader+string(content)+fileFooter)
+			fileNamesForPrompt = append(fileNamesForPrompt, file.Info.FilePath)
 			filesAdded++
 		}
 
-		// If we successfully read any files, inject them into the next turn's context
-		// and re-process immediately so the AI can use the file content.
-		if len(fileContents) > 0 {
-			allFileContent := strings.Join(fileContents, "\n")
-			fileContextForNextTurn := "I have read the file(s) you requested. Here are the contents:\n" + allFileContent
+		// 4. If files were read, start a new turn with a simple confirmation message.
+		if filesAdded > 0 {
 			m.Println(fmt.Sprintf("Successfully read %d file(s) and added to context for this turn.", filesAdded))
 
-			// Re-process immediately, injecting file content into this turn's message.
-			nextPrompt := fileContextForNextTurn + "\n\nNow that you have the file content, what is the next step?"
+			// Re-process immediately. The prompt does NOT contain the file content,
+			// as it's now correctly in the ----FILES---- context block.
+			nextPrompt := fmt.Sprintf("I have read the file(s): %s. What is the next step?", strings.Join(fileNamesForPrompt, ", "))
 			accomplished := m.ProcessUserMessage(ctx, nextPrompt)
 			return accomplished
 		}
