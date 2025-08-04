@@ -21,7 +21,7 @@ Total: 3053 tokens (2000+ tokens wasted)
 ## 🚀 **Proposed Solution: Structured Message Format**
 
 ### **New Message Structure:**
-The new format separates static context (Repo Map, Files), historical context from previous sessions, and the current session's dynamic data.
+The new format is a single, flat structure of top-level sections. The full context, including all file contents, is sent with every API call.
 
 ```
 ----PROMPTS----
@@ -34,15 +34,20 @@ The new format separates static context (Repo Map, Files), historical context fr
 ----END-OF-REPO-MAP----
 
 ----FILES----
-file: /path/to/main.go [UPDATED] (last modified: 14:30:15)
-[file content]
-file: /path/to/config.yaml [UNCHANGED since message 3]
+--- file: /path/to/main.go [UPDATED] (last modified: 14:30:15) ---
+[Full, updated content of main.go]
+--- end of file: /path/to/main.go ---
+
+--- file: /path/to/config.yaml [UNCHANGED since message 3] (last modified: 12:45:30) ---
+[Full, unchanged content of config.yaml]
+--- end of file: /path/to/config.yaml ---
+
+--- file: /path/to/old_feature.go [REMOVED] (removed at: 14:32:10) ---
 ----END-OF-FILES----
 
 ----OLD-SESSION-DATA----
 [Restored from: "feature-branch-work" - saved: Sun, 20 Jul 2025 14:30:00 UTC]
-
-### [Turn 1 - saved: 14:31:00 UTC]
+### day time g f
 ====pane: %1====
 $ ls -l
 ...output...
@@ -51,7 +56,7 @@ $ ls -l
 [CHAT]
 User: "List the files"
 AI: "Okay, running ls -l"
-### [End of Turn 1]
+### end of day time g f
 ----END-OF-OLD-SESSION-DATA----
 
 ----CURRENT-SESSION-DATA----
@@ -68,8 +73,6 @@ $ git status
 ____END-OF-NEW-CONTENT____
 ====end of pane %1====
 
-====pane: %2 [UNCHANGED since message 5]====
-
 [CURRENT CHAT HISTORY]
 User: "What's in this project?"
 AI: "I can see this is a Go project..."
@@ -78,10 +81,10 @@ User: "Run the tests"
 ```
 
 ### **Smart Change Tracking:**
-- **`[UPDATED]`**, **`[UNCHANGED since message X]`**, **`[REMOVED]`**, **`[NEW]`**: These markers apply to static items like `REPO-MAP` and `FILES`.
-- **`----OLD-SESSION-DATA----`**: A read-only block containing the complete pane content and conversation from a restored session. This provides historical context.
-- **`----CURRENT-SESSION-DATA----`**: Contains the live state of the current session.
-- **Pane Content Model**: Panes in the current session display their full content. For `[UPDATED]` panes, a `___NEW-CONTENT___` block highlights only the lines that have appeared since the last turn. In the next turn, this "new" content becomes part of the pane's base content.
+- **Stateless Principle**: The AI is stateless. The entire context, including full file contents, must be sent with every API call.
+- **`[UPDATED]`**, **`[UNCHANGED since message X]`**, **`[REMOVED]`**, **`[NEW]`**: These are metadata markers for the AI. They explain the timeline of changes but DO NOT replace the content. The full content for `[UPDATED]` and `[UNCHANGED]` files is always included.
+- **`----OLD-SESSION-DATA----`**: A clean, read-only block containing the final pane content and user-facing conversation from a restored session. It MUST NOT contain nested context blocks like `----REPO-MAP----`.
+- **`----CURRENT-SESSION-DATA----`**: Contains the live state of the current session, including the "rolling" `___NEW-CONTENT___` blocks for panes.
 
 ### **Timestamp System:**
 - **Current time** shown at top of every message

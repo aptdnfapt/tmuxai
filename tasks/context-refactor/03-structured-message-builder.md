@@ -80,23 +80,31 @@ func (b *StructuredMessageBuilder) buildRepoMapSection() string {
 	}
 }
 
-// buildFilesSection builds the files section with status for each file.
+// buildFilesSection builds the files section with sub-blocks for each file.
 func (b *StructuredMessageBuilder) buildFilesSection() string {
 	var content bytes.Buffer
 	for path, state := range b.Manager.ContextTracker.CurrentState.Files {
+		var header, footer, fileBlock string
 		switch state.Status {
 		case StatusNew, StatusUpdated:
-			content.WriteString(fmt.Sprintf("file: %s [%s] (last modified: %s)\n%s\n", path, state.Status, state.Timestamp.Format(time.RFC1123), state.Content))
+			header = fmt.Sprintf("--- file: %s [%s] (last modified: %s) ---\n", path, state.Status, state.Timestamp.Format(time.RFC1123))
+			footer = fmt.Sprintf("\n--- end of file: %s ---\n\n", path)
+			fileBlock = header + state.Content + footer
 		case StatusUnchanged:
-			content.WriteString(fmt.Sprintf("file: %s [%s since message %d]\n", path, state.Status, state.LastChanged))
+			// For UNCHANGED files, we still send the full content. The status is metadata for the AI.
+			header = fmt.Sprintf("--- file: %s [%s since message %d] (last modified: %s) ---\n", path, state.Status, state.LastChanged, state.Timestamp.Format(time.RFC1123))
+			footer = fmt.Sprintf("\n--- end of file: %s ---\n\n", path)
+			fileBlock = header + state.Content + footer
 		case StatusRemoved:
-			content.WriteString(fmt.Sprintf("file: %s [%s]\n", path, state.Status))
+			fileBlock = fmt.Sprintf("--- file: %s [%s] (removed at: %s) ---\n\n", path, state.Status, state.RemovedAt.Format(time.RFC1123))
 		}
+		content.WriteString(fileBlock)
 	}
-	return content.String()
+	// Trim the final trailing newline for cleaner output.
+	return strings.TrimSuffix(content.String(), "\n")
 }
 
-// buildOldSessionSection builds the section for restored session data.
+// buildOldSessionSection builds the section for restored session data, ensuring no nested context is included.
 func (b *StructuredMessageBuilder) buildOldSessionSection() string {
 	if b.Manager.OldSession == nil {
 		return ""
@@ -106,20 +114,31 @@ func (b *StructuredMessageBuilder) buildOldSessionSection() string {
 	oldSession := b.Manager.OldSession
 	content.WriteString(fmt.Sprintf("[Restored from: \"%s\" - saved: %s]\n\n", oldSession.SessionName, oldSession.SavedAt.Format(time.RFC1123)))
 
-	// For simplicity in this plan, we'll just show the final state of old panes and the conversation.
-	// A more advanced implementation could show turn-by-turn history.
+	// Show the final state of old panes.
 	content.WriteString("### [PREVIOUS PANES]\n")
 	for id, state := range oldSession.Panes {
 		content.WriteString(fmt.Sprintf("====pane: %s====\n%s\n====end of pane %s====\n", id, state.Content, id))
 	}
 
+	// Show a clean, parsed version of the old conversation history to avoid sending nested context.
 	content.WriteString("\n### [PREVIOUS CHAT HISTORY]\n")
 	for _, msg := range oldSession.Conversation {
-		role := "AI"
+		var role, messageText string
 		if msg.FromUser {
 			role = "User"
+			// In the implementation, this would involve regex to extract the final user input
+			// from the [CURRENT CHAT HISTORY] block of the saved message.
+			messageText = "/* Extracted user input from saved message content */"
+		} else {
+			role = "AI"
+			// In the implementation, this would call a parser on the saved AI response to
+			// get only the user-facing message, stripping out tool calls.
+			messageText = "/* Extracted AI message from saved response content */"
 		}
-		content.WriteString(fmt.Sprintf("%s: %s\n", role, msg.Content))
+
+		if strings.TrimSpace(messageText) != "" {
+			content.WriteString(fmt.Sprintf("%s: %s\n", role, messageText))
+		}
 	}
 	return content.String()
 }

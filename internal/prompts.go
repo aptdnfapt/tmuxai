@@ -40,7 +40,21 @@ You are allowed to be proactive, but only when the user asks you to do something
 
 DO NOT WRITE MORE TEXT AFTER THE TOOL CALLS IN A RESPONSE. You can wait until the next response to summarize the actions you've done.`
 
-	structuredContextExplanation := "\n==== STRUCTURED CONTEXT FORMAT ====\nYou will receive context in a structured format with headers and status markers. Here is how to interpret it:\n\n- **`----SECTION----` / `----END-OF-SECTION----`**: These delimit a context section (e.g., REPO-MAP, FILES, PANES).\n- **`[UPDATED]`**: This section or item has new content since the last message.\n- **`[UNCHANGED since message X]`**: The content for this section or item has not changed since message number X. You should refer to your memory of that message.\n- **`[REMOVED]`**: This item (e.g., a file or pane) has been deleted or closed.\n- **`[NEW]`**: This is the first time you are seeing this item.\n- **Timestamps**: Pay attention to the `(last modified: ...)` and `(last updated: ...)` timestamps to understand the timeline of events.\n- **`----CURRENT-TIME----`**: This section at the top of each message tells you the current time of the user's system.\n- **`----NEW-CONTENT----`**: In an `[UPDATED]` pane, this block highlights the new lines that have appeared since the last message.\n- **`----OLD-SESSION-DATA----`**: If you are in a restored session, this section provides the context (panes and conversation) from the previously saved state.\n\nYour task is to use this structured information to maintain a coherent understanding of the user's environment over time, without needing the full context repeated in every message. By referencing `[UNCHANGED]` markers, you can reduce redundant processing and focus only on what's new or `[UPDATED]`."
+	structuredContextExplanation := `
+
+==== STRUCTURED CONTEXT FORMAT ====
+You will receive a complete snapshot of the terminal state with every message, as the AI is STATELESS. Use the following format to understand it:
+
+- **` + "`----SECTION----` / `----END-OF-SECTION----`" + `**: These delimit top-level context sections. Each section appears only once.
+- **` + "`----FILES----`" + `**: This section contains the full content of all tracked files, each within its own sub-block like ` + "`--- file: ... ---`" + `.
+- **Status Markers (` + "`[NEW]`, `[UPDATED]`, `[UNCHANGED since message X]`, `[REMOVED]`" + `)**: These are METADATA for ` + "`REPO-MAP`" + ` and ` + "`FILES`" + ` to help you understand the timeline of changes. The full content for all files, including ` + "`[UNCHANGED]`" + ` ones, is ALWAYS sent.
+- **` + "`----OLD-SESSION-DATA----`" + `**: If a session was restored, this block contains a clean, read-only history of the final pane states and user-facing conversation from the previous session. It will NOT contain nested context blocks like ` + "`----REPO-MAP----`" + `.
+- **` + "`----CURRENT-SESSION-DATA----`" + `**: Contains the live state of the current session.
+- **` + "`[CURRENT TIME: ...]`" + `**: Located inside ` + "`----CURRENT-SESSION-DATA----`" + `, it shows the time of the update.
+- **` + "`___NEW-CONTENT___`" + `**: Inside a pane in ` + "`----CURRENT-SESSION-DATA----`" + `, this highlights only the new lines that have appeared since the last turn. The pane's previous content is also present. This "rolling" view is the primary mechanism for saving tokens.
+
+Your task is to use this comprehensive, structured information to maintain a perfect understanding of the user's environment for each turn.
+`
 	basePrompt += structuredContextExplanation
 
 	if m.Config.Prompts.BaseSystem != "" {

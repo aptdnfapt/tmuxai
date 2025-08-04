@@ -21,7 +21,7 @@ The new context system is powered by two main components:
 
 ## The Structured Message Format
 
-The message is broken into clear sections. It separates static context (like files), historical context from previous sessions, and the live data from the current session.
+The message is a single, flat structure of top-level sections. It separates static context (like files), historical context from previous sessions, and the live data from the current session. **The full content for all context items is sent with every message.**
 
 ```
 ----REPO-MAP----
@@ -29,10 +29,13 @@ The message is broken into clear sections. It separates static context (like fil
 ----END-OF-REPO-MAP----
 
 ----FILES----
-file: /path/to/main.go [UPDATED] (last modified: Mon, 21 Jul 2025 19:00:04 UTC)
-[... new file content ...]
+--- file: /path/to/main.go [UPDATED] (last modified: Mon, 21 Jul 2025 19:00:04 UTC) ---
+[... new, full file content ...]
+--- end of file: /path/to/main.go ---
 
-file: /path/to/config.yaml [UNCHANGED since message 3]
+--- file: /path/to/config.yaml [UNCHANGED since message 3] (last modified: Mon, 21 Jul 2025 18:50:00 UTC) ---
+[... full, unchanged content of config.yaml ...]
+--- end of file: /path/to/config.yaml ---
 ----END-OF-FILES----
 
 ----OLD-SESSION-DATA----
@@ -72,10 +75,10 @@ ____END-OF-NEW-CONTENT____
 The system prompt explains this format to the AI:
 
 -   **`----SECTION----`**: Delimits different types of context.
--   **`[NEW]`**, **`[UPDATED]`**, **`[UNCHANGED since message X]`**, **`[REMOVED]`**: These status markers apply to static context like `REPO-MAP` and `FILES`. `[UNCHANGED]` is the primary mechanism for saving tokens.
--   **`----OLD-SESSION-DATA----`**: When a session is restored, the full pane content and conversation from the previous session are loaded here as a read-only historical reference.
+-   **`[NEW]`**, **`[UPDATED]`**, **`[UNCHANGED since message X]`**, **`[REMOVED]`**: These are metadata markers for static context like `REPO-MAP` and `FILES`. They help the AI understand the timeline of events. The full content for all files, including `[UNCHANGED]` ones, is always sent.
+-   **`----OLD-SESSION-DATA----`**: When a session is restored, the clean, final state of panes and the user-facing conversation from the previous session are loaded here as a read-only historical reference. It does not contain nested context.
 -   **`----CURRENT-SESSION-DATA----`**: This block contains the live, dynamic state of the current terminal session.
--   **`___NEW-CONTENT___`**: Inside a pane in the `CURRENT-SESSION-DATA` block, this special marker contains **only** the new lines that have appeared since the last message. In the next turn, this "new" content will become part of the pane's base content, and a new `___NEW-CONTENT___` block will show the next update. This creates a "rolling" view of the pane's history.
+-   **`___NEW-CONTENT___`**: Inside a pane in the `CURRENT-SESSION-DATA` block, this special marker contains **only** the new lines that have appeared since the last message. In the next turn, this "new" content will become part of the pane's base content, and a new `___NEW-CONTENT___` block will show the next update. This "rolling" view is the primary mechanism for saving tokens.
 -   **Timestamps**: Each item includes a timestamp of its last modification, helping the AI understand the sequence of events.
 
 ## Step-by-Step Context Building Process
