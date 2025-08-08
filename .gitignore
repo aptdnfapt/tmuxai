@@ -10,4 +10,5 @@ debug-*.txt
 debug.log
 docs/hardcoded-prmpt.human.analysis.md
 .crush
+*.log
 

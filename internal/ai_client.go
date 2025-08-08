@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -166,12 +167,32 @@ func (c *AiClient) ChatCompletion(ctx context.Context, messages []Message, model
 	return "", fmt.Errorf("no completion choices returned (model: %s, status: %d)", model, resp.StatusCode)
 }
 
-func debugChatMessages(chatMessages []ChatMessage, response string) {
+func debugChatMessages(chatMessages []ChatMessage, response string, cfg *config.Config) {
 
 	timestamp := time.Now().Format("20060102-150405")
-	configDir, _ := config.GetConfigDir()
 
-	debugDir := fmt.Sprintf("%s/debug", configDir)
+	// Use configured debug directory if available, otherwise use default
+	debugDir := ""
+	if cfg.DebugDir != "" {
+		// Expand ~ to home directory
+		if strings.HasPrefix(cfg.DebugDir, "~/") {
+			homeDir, err := os.UserHomeDir()
+			if err == nil {
+				debugDir = filepath.Join(homeDir, cfg.DebugDir[2:])
+			} else {
+				// Fall back to default if we can't get home directory
+				configDir, _ := config.GetConfigDir()
+				debugDir = fmt.Sprintf("%s/debug", configDir)
+			}
+		} else {
+			debugDir = cfg.DebugDir
+		}
+	} else {
+		configDir, _ := config.GetConfigDir()
+		debugDir = fmt.Sprintf("%s/debug", configDir)
+	}
+
+	// Create debug directory if it doesn't exist
 	if _, err := os.Stat(debugDir); os.IsNotExist(err) {
 		os.Mkdir(debugDir, 0755)
 	}

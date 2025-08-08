@@ -13,6 +13,7 @@ import (
 // Config holds the application configuration
 type Config struct {
 	Debug                 bool             `mapstructure:"debug"`
+	DebugDir              string           `mapstructure:"debug_dir"`
 	AgenticMode           bool             `mapstructure:"agentic_mode"`
 	Editor                string           `mapstructure:"editor"`
 	Layout                string           `mapstructure:"layout"`
@@ -52,6 +53,7 @@ type PromptsConfig struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Debug:                 false,
+		DebugDir:              "", // Use default debug directory
 		AgenticMode:           false,
 		Editor:                "nano",
 		Layout:                "",

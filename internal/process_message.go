@@ -97,7 +97,7 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 		// Debug the failed request even when there's an error
 		if m.Config.Debug {
-			debugChatMessages(append(history, currentMessage), "ERROR: "+err.Error())
+			debugChatMessages(append(history, currentMessage), "ERROR: "+err.Error(), m.Config)
 		}
 
 		return false
@@ -120,14 +120,14 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 		// Debug the failed parsing even when there's an error
 		if m.Config.Debug {
-			debugChatMessages(append(history, currentMessage), "PARSE ERROR: "+response)
+			debugChatMessages(append(history, currentMessage), "PARSE ERROR: "+response, m.Config)
 		}
 
 		return false
 	}
 
 	if m.Config.Debug {
-		debugChatMessages(append(history, currentMessage), response)
+		debugChatMessages(append(history, currentMessage), response, m.Config)
 	}
 
 	logger.Debug("AIResponse: %s", r.String())

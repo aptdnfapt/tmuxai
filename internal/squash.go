@@ -130,7 +130,7 @@ func (m *Manager) summarizeChatHistory(messages []ChatMessage) (string, error) {
 	}
 
 	if m.Config.Debug {
-		debugChatMessages(summarizationMessage, summary)
+		debugChatMessages(summarizationMessage, summary, m.Config)
 	}
 
 	s.Stop()

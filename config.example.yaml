@@ -38,6 +38,11 @@ openrouter:
 #   base_url: http://localhost:11434/v1
 
 debug: false # Set to true to log full AI messages sent and received. Dest: ~/.config/tmuxai/debug/
+debug_dir: "" # Custom directory for debug files. If empty, defaults to ~/.config/tmuxai/debug/
+# Examples:
+#   debug_dir: "/tmp/tmuxai-debug"               # Absolute path
+#   debug_dir: "~/Development/tmuxai-debug"      # Path with ~ (expanded to home directory)
+#   debug_dir: "./debug"                        # Relative path (relative to where tmuxai is run)
 
 # AI generated and not verified - use with caution!!
 # All confirmations are checked based on these patterns
