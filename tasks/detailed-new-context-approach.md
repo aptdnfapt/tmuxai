@@ -91,6 +91,16 @@ drwxr-xr-x  4 user  staff  128 Jan  1 12:00 .
 drwxr-xr-x  3 user  staff   96 Jan  1 12:00 ..
 -rw-r--r--  1 user  staff  156 Jan  1 12:00 main.go
 ====
+
+[Previous Session Summary]
+Session 'feature-login' (closed 2 hours ago):
+- Implemented user authentication system
+- Added login/logout endpoints
+- Created user database schema
+- Fixed 3 authentication bugs
+- Ran successful integration tests
+====
+
 [Conversation History]
 User: Can you help me run this Go program?
 AI: I can see your Go program. Let me run it for you.
@@ -180,6 +190,10 @@ func (b *SimplifiedMessageBuilder) BuildMessage(userInput string) string {
     buf.WriteString(b.buildPaneContent())
     buf.WriteString("====\n")
     
+    // Old Session Summary (AI-generated summary of previous sessions)
+    buf.WriteString(b.buildOldSessionSummary())
+    buf.WriteString("====\n")
+    
     // Conversation History
     buf.WriteString(b.buildConversationHistory())
     buf.WriteString("====\n")
@@ -225,6 +239,20 @@ func (b *SimplifiedMessageBuilder) buildPaneContent() string {
         }
         paneContent, _ := system.TmuxCapturePane(pane.Id, b.Manager.GetMaxCaptureLines())
         buf.WriteString(fmt.Sprintf("Pane %s:\n%s\n\n", pane.Id, paneContent))
+    }
+    
+    return buf.String()
+}
+
+func (b *SimplifiedMessageBuilder) buildOldSessionSummary() string {
+    var buf bytes.Buffer
+    buf.WriteString("[Previous Session Summary]\n")
+    
+    // When a session is opened for the second time, generate an AI summary
+    // of what was accomplished in the previous session instead of sending raw data
+    if b.Manager.HasPreviousSession() {
+        summary := b.Manager.GetPreviousSessionSummary()
+        buf.WriteString(summary)
     }
     
     return buf.String()
@@ -305,7 +333,29 @@ Remove the following types:
 
 Keep only the essential types needed for the simplified approach.
 
-#### 5. System Prompt Updates
+#### 5. Old Session Data Enhancement
+
+To reduce context bloat from previous sessions, instead of sending raw session data:
+
+1. **AI-Generated Summaries**: When a session is opened for the second time, generate a concise AI summary of what was accomplished in the previous session
+2. **Summary Placement**: Include this summary in a dedicated `[Previous Session Summary]` block in the message structure
+3. **Token Efficiency**: Summaries are typically 50-100 tokens vs. potentially thousands of tokens for raw session data
+4. **Contextual Value**: Summaries provide high-level context about previous work without overwhelming detail
+
+Example summary format:
+```
+[Previous Session Summary]
+Session 'feature-login' (closed 2 hours ago):
+- Implemented user authentication system
+- Added login/logout endpoints
+- Created user database schema
+- Fixed 3 authentication bugs
+- Ran successful integration tests
+```
+
+This approach reduces context size by 80-95% for sessions with significant history while still providing valuable context to the AI.
+
+#### 6. System Prompt Updates
 
 Update the system prompts in `internal/prompts.go` to include the new workflow instructions as shown in the example above.
 
