@@ -1,4 +1,5 @@
 tmuxai
+.claude
 tui_textarea.go
 debug
 .windsurfrules
@@ -11,4 +12,7 @@ debug.log
 docs/hardcoded-prmpt.human.analysis.md
 .crush
 *.log
+
+# LLM documentation and working files
+.llm/
 
