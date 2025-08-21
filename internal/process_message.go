@@ -31,13 +31,9 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		return false
 	}
 
-	// 1. Increment message count for the new turn.
-	m.ContextTracker.IncrementMessageCount()
-
 	// 2. Update context state from all sources.
 	// Update Repo Map
-	repoMapContext, _ := m.RepoMap.GetMap()
-	m.ContextTracker.UpdateRepoMap(repoMapContext)
+	m.RepoMap.GetMap()
 
 	// Update Panes
 	panes, _ := m.GetTmuxPanes()
@@ -45,15 +41,14 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		if pane.IsTmuxAiPane {
 			continue
 		}
-		paneContent, _ := system.TmuxCapturePane(pane.Id, m.GetMaxCaptureLines())
-		m.ContextTracker.UpdatePane(pane.Id, paneContent)
+		system.TmuxCapturePane(pane.Id, m.GetMaxCaptureLines())
 	}
 
 	// Update Read Files (a placeholder for now, will be fully implemented later)
 	for _, filePath := range m.ReadFiles {
-		content, err := os.ReadFile(filePath)
+		_, err := os.ReadFile(filePath)
 		if err == nil {
-			m.ContextTracker.UpdateFile(filePath, string(content))
+			// File content is now read fresh each time in the message builder
 		}
 	}
 
@@ -426,10 +421,6 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 				continue
 			}
 			logger.Info("Read file: %s (%d bytes)", file.AbsPath, len(content))
-
-			// Update the context tracker immediately with the new file content.
-			// This makes it available in the ----FILES---- section.
-			m.ContextTracker.UpdateFile(file.AbsPath, string(content))
 
 			// Add to session's read file list if not already there
 			isAlreadyRead := false

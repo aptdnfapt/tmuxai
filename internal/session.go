@@ -166,31 +166,13 @@ func (m *Manager) LoadSession(path string) error {
 		return fmt.Errorf("failed to unmarshal session data from %s: %w", path, err)
 	}
 
-	// Instead of overwriting the current state, load the session data
-	// into the OldSession field for context.
-	m.OldSession = &OldSessionData{
-		SessionName:  sessionData.Title,
-		SavedAt:      sessionData.Timestamp,
-		Conversation: sessionData.Messages,
-		Panes:        make(map[string]SectionState),
-		Files:        make(map[string]SectionState),
-	}
-
-	// Convert loaded pane content into SectionState
-	for id, content := range sessionData.Panes {
-		m.OldSession.Panes[id] = SectionState{
-			Content: content,
-			Status:  StatusOldSession,
-		}
-	}
-
-	// Convert loaded file paths into SectionState (content will be loaded on demand if needed)
-	for _, path := range sessionData.ReadFiles {
-		m.OldSession.Files[path] = SectionState{
-			Content: "", // Placeholder
-			Status:  StatusOldSession,
-		}
-	}
+	// Store session data for generating summaries later
+	// This is a simplified approach for the new context management
+	m.SessionOverrides["old_session_title"] = sessionData.Title
+	m.SessionOverrides["old_session_timestamp"] = sessionData.Timestamp
+	m.SessionOverrides["old_session_messages"] = sessionData.Messages
+	m.SessionOverrides["old_session_panes"] = sessionData.Panes
+	m.SessionOverrides["old_session_files"] = sessionData.ReadFiles
 
 	// The current session starts fresh.
 	m.Messages = []ChatMessage{}

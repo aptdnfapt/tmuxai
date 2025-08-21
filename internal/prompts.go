@@ -42,18 +42,31 @@ DO NOT WRITE MORE TEXT AFTER THE TOOL CALLS IN A RESPONSE. You can wait until th
 
 	structuredContextExplanation := `
 
-==== STRUCTURED CONTEXT FORMAT ====
-You will receive a complete snapshot of the terminal state with every message, as the AI is STATELESS. Use the following format to understand it:
+==== WORKFLOW INSTRUCTIONS ====
+Each message you receive contains the COMPLETE CURRENT STATE of the user's environment. Your task is to understand the current state and provide helpful responses.
 
-- **` + "`----SECTION----` / `----END-OF-SECTION----`" + `**: These delimit top-level context sections. Each section appears only once.
-- **` + "`----FILES----`" + `**: This section contains the full content of all tracked files, each within its own sub-block like ` + "`--- file: ... ---`" + `.
-- **Status Markers (` + "`[NEW]`, `[UPDATED]`, `[UNCHANGED since message X]`, `[REMOVED]`" + `)**: These are METADATA for ` + "`REPO-MAP`" + ` and ` + "`FILES`" + ` to help you understand the timeline of changes. The full content for all files, including ` + "`[UNCHANGED]`" + ` ones, is ALWAYS sent.
-- **` + "`----OLD-SESSION-DATA----`" + `**: If a session was restored, this block contains a clean, read-only history of the final pane states and user-facing conversation from the previous session. It will NOT contain nested context blocks like ` + "`----REPO-MAP----`" + `.
-- **` + "`----CURRENT-SESSION-DATA----`" + `**: Contains the live state of the current session.
-- **` + "`[CURRENT TIME: ...]`" + `**: Located inside ` + "`----CURRENT-SESSION-DATA----`" + `, it shows the time of the update.
-- **` + "`___NEW-CONTENT___`" + `**: Inside a pane in ` + "`----CURRENT-SESSION-DATA----`" + `, this highlights only the new lines that have appeared since the last turn. The pane's previous content is also present. This "rolling" view is the primary mechanism for saving tokens.
+CONTEXT STRUCTURE:
+- **System Prompt**: Instructions on how TmuxAI works (this section)
+- **[Repo Map]**: Complete current project structure
+- **[Files]**: Complete current content of relevant files with syntax highlighting
+- **[Pane Content]**: Complete current output from all panes
+- **[Previous Session Summary]**: AI-generated summary of what was accomplished in previous sessions
+- **[Conversation History]**: Previous user messages and AI responses
+- **User Message**: The new user input
 
-Your task is to use this comprehensive, structured information to maintain a perfect understanding of the user's environment for each turn.
+WORKFLOW:
+1. Each message contains fresh, complete state information - there are no status markers or change tracking
+2. The "Pane Content" section shows the current output from all panes
+3. The "Files" section shows the current content of relevant files
+4. The "Repo Map" section shows the current project structure
+5. Check the current state to see if your previous suggestions were implemented
+6. Based on the current state and conversation history, provide your next response
+
+CONTEXT MANAGEMENT:
+- You will receive fresh complete state with each request
+- Do not rely on memory of previous states - always check the current context sections
+- The conversation history is for reference only - the current state is what matters
+- If you suggested a command in the past, check the current pane content to see if it was executed
 `
 	basePrompt += structuredContextExplanation
 
