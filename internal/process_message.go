@@ -52,12 +52,19 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		}
 	}
 
-	// 3. Build the new structured message.
+	// 3. Build the new structured message for sending to AI.
 	structuredMessage := m.MessageBuilder.BuildMessage(message)
 
-	// 4. Create the ChatMessage with the new structured content.
+	// 4. Create the ChatMessage with the full structured content for sending to AI
 	currentMessage := ChatMessage{
-		Content:   structuredMessage,
+		Content:   structuredMessage, // Send the full structured message to AI
+		FromUser:  true,
+		Timestamp: time.Now(),
+	}
+
+	// For conversation history, we'll store only the actual user input
+	historyUserMessage := ChatMessage{
+		Content:   message, // Store only the actual user input
 		FromUser:  true,
 		Timestamp: time.Now(),
 	}
@@ -75,6 +82,7 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 	history = append(history, m.Messages...)
 
+	// Use currentMessage (with full structured content) for sending to AI
 	sending := append(history, currentMessage)
 
 	response, err := m.AiClient.GetResponseFromChatMessages(ctx, sending, m.GetOpenRouterModel())
@@ -129,11 +137,7 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 	s.Stop()
 
-	responseMsg := ChatMessage{
-		Content:   response,
-		FromUser:  false,
-		Timestamp: time.Now(),
-	}
+	// We'll create response messages inline where needed, no need to create it here
 
 	if r.CreateExecPane {
 		m.CreateNewExecPane()
@@ -143,7 +147,13 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 	guidelineError, validResponse := m.aiFollowedGuidelines(r)
 	if !validResponse {
 		m.Println("AI didn't follow guidelines, trying again...")
-		m.Messages = append(m.Messages, currentMessage, responseMsg)
+		// Store only the actual user input and AI message, not the full structured content
+		aiMsg := ChatMessage{
+			Content:   r.Message,
+			FromUser:  false,
+			Timestamp: time.Now(),
+		}
+		m.Messages = append(m.Messages, historyUserMessage, aiMsg)
 		return m.ProcessUserMessage(ctx, guidelineError)
 
 	}
@@ -227,7 +237,13 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 				commandID := fmt.Sprintf("%05d", rand.Intn(100000))
 				// A synchronous command was requested. First, add the history for the *current* turn.
 				if !r.ExecPaneSeemsBusy && !r.NoComment {
-					m.Messages = append(m.Messages, currentMessage, responseMsg)
+					// Store only the actual user input and AI message, not the full structured content
+					aiMsg := ChatMessage{
+						Content:   r.Message,
+						FromUser:  false,
+						Timestamp: time.Now(),
+					}
+					m.Messages = append(m.Messages, historyUserMessage, aiMsg)
 				}
 
 				var exitCodeVar string
@@ -363,7 +379,13 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 	if len(r.ReadFile) > 0 {
 		// A ReadFile request is synchronous and requires a new turn.
 		if !r.ExecPaneSeemsBusy && !r.NoComment {
-			m.Messages = append(m.Messages, currentMessage, responseMsg)
+			// Store only the actual user input and AI message, not the full structured content
+			aiMsg := ChatMessage{
+				Content:   r.Message,
+				FromUser:  false,
+				Timestamp: time.Now(),
+			}
+			m.Messages = append(m.Messages, historyUserMessage, aiMsg)
 		}
 
 		// 1. Validate all files first
@@ -453,7 +475,13 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 	// Handle final state changes
 	if r.RequestAccomplished {
 		if !r.ExecPaneSeemsBusy && !r.NoComment {
-			m.Messages = append(m.Messages, currentMessage, responseMsg)
+			// Store only the actual user input and AI message, not the full structured content
+			aiMsg := ChatMessage{
+				Content:   r.Message,
+				FromUser:  false,
+				Timestamp: time.Now(),
+			}
+			m.Messages = append(m.Messages, historyUserMessage, aiMsg)
 		}
 		m.Status = ""
 		return true
@@ -461,7 +489,13 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 	if r.WaitingForUserResponse {
 		if !r.ExecPaneSeemsBusy && !r.NoComment {
-			m.Messages = append(m.Messages, currentMessage, responseMsg)
+			// Store only the actual user input and AI message, not the full structured content
+			aiMsg := ChatMessage{
+				Content:   r.Message,
+				FromUser:  false,
+				Timestamp: time.Now(),
+			}
+			m.Messages = append(m.Messages, historyUserMessage, aiMsg)
 		}
 		m.Status = "waiting"
 		return false
@@ -482,7 +516,13 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 	if isAsyncAction || r.ExecPaneSeemsBusy {
 		// For async actions, we append history, do a countdown, and then re-process.
 		if !r.ExecPaneSeemsBusy && !r.NoComment {
-			m.Messages = append(m.Messages, currentMessage, responseMsg)
+			// Store only the actual user input and AI message, not the full structured content
+			aiMsg := ChatMessage{
+				Content:   r.Message,
+				FromUser:  false,
+				Timestamp: time.Now(),
+			}
+			m.Messages = append(m.Messages, historyUserMessage, aiMsg)
 		}
 
 		m.Countdown(m.GetWaitInterval())

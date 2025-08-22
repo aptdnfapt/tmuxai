@@ -23,10 +23,6 @@ func NewSimplifiedMessageBuilder(manager *Manager) *SimplifiedMessageBuilder {
 func (b *SimplifiedMessageBuilder) BuildMessage(userInput string) string {
 	var buf bytes.Buffer
 	
-	// System Prompt
-	buf.WriteString(b.buildSystemPrompt())
-	buf.WriteString("====\n")
-	
 	// Repo Map
 	buf.WriteString(b.buildRepoMap())
 	buf.WriteString("====\n")

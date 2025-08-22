@@ -168,7 +168,6 @@ func (c *AiClient) ChatCompletion(ctx context.Context, messages []Message, model
 }
 
 func debugChatMessages(chatMessages []ChatMessage, response string, cfg *config.Config) {
-
 	timestamp := time.Now().Format("20060102-150405")
 
 	// Use configured debug directory if available, otherwise use default
@@ -206,20 +205,20 @@ func debugChatMessages(chatMessages []ChatMessage, response string, cfg *config.
 	}
 	defer file.Close()
 
-	file.WriteString("==================    SENT CHAT MESSAGES ==================\n\n")
-
-	for i, msg := range chatMessages {
+	// Only include the last message (the current request) and the AI response
+	// This ensures each debug file contains only one API call
+	if len(chatMessages) > 0 {
+		lastMessage := chatMessages[len(chatMessages)-1]
 		role := "assistant"
-		if msg.FromUser {
+		if lastMessage.FromUser {
 			role = "user"
 		}
-		if i == 0 && !msg.FromUser {
-			role = "system"
-		}
-		timeStr := msg.Timestamp.Format(time.RFC3339)
+		timeStr := lastMessage.Timestamp.Format(time.RFC3339)
 
-		file.WriteString(fmt.Sprintf("Message %d: Role=%s, Time=%s\n", i+1, role, timeStr))
-		file.WriteString(fmt.Sprintf("Content:\n%s\n\n", msg.Content))
+		file.WriteString("==================    SENT REQUEST ==================\n")
+		file.WriteString(fmt.Sprintf("Role: %s\n", role))
+		file.WriteString(fmt.Sprintf("Time: %s\n", timeStr))
+		file.WriteString(fmt.Sprintf("Content:\n%s\n\n", lastMessage.Content))
 	}
 
 	file.WriteString("==================    RECEIVED RESPONSE ==================\n\n")
