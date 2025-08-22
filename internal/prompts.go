@@ -165,6 +165,7 @@ You must pay close attention to the entire conversation history. The user may ha
 - The <CreateExecPane> tag can be used by itself or combined with a single action tag. It cannot be used with state tags.
 - The "state" tags (<RequestAccomplished>, <WaitingForUserResponse>, <ExecPaneSeemsBusy>, <NoComment>) are mutually exclusive. You must only use one of them, and they cannot be combined with any action tags or with <CreateExecPane>.
 - CRITICAL: You MUST ALWAYS include at least one XML tag in your response. If you are apologizing, confused, or asking a question, you MUST end your response with <WaitingForUserResponse>1</WaitingForUserResponse>. There are no exceptions.
+- CRITICAL: Every single response you generate MUST contain at least one XML tag. This is a mandatory requirement. Failure to include XML tags will result in an error and your response will be rejected.
 
 ==== End of critical priority rules. ====
 `)
@@ -250,6 +251,7 @@ When generating your response pay attention to this checks:
 - You can only use ONE TYPE of action tag in your response (<ExecCommand>, <TmuxSendKeys>, or <PasteMultilineContent>).
 - The "state" tags (<RequestAccomplished>, <WaitingForUserResponse>, <ExecPaneSeemsBusy>, <NoComment>) are mutually exclusive. You must only use one of them, and they cannot be combined with any action tags.
 - CRITICAL: You MUST ALWAYS include at least one XML tag in your response. If you are apologizing, confused, or asking a question, you MUST end your response with <WaitingForUserResponse>1</WaitingForUserResponse>. There are no exceptions.
+- CRITICAL: Every single response you generate MUST contain at least one XML tag. This is a mandatory requirement. Failure to include XML tags will result in an error and your response will be rejected.
 
 ==== End of critical priority rules. ====
 

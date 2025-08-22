@@ -147,9 +147,9 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 	guidelineError, validResponse := m.aiFollowedGuidelines(r)
 	if !validResponse {
 		m.Println("AI didn't follow guidelines, trying again...")
-		// Store only the actual user input and AI message, not the full structured content
+		// Store the full AI response including XML tags so the AI can see its previous actions
 		aiMsg := ChatMessage{
-			Content:   r.Message,
+			Content:   response, // Store the full response with XML tags
 			FromUser:  false,
 			Timestamp: time.Now(),
 		}
@@ -237,9 +237,9 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 				commandID := fmt.Sprintf("%05d", rand.Intn(100000))
 				// A synchronous command was requested. First, add the history for the *current* turn.
 				if !r.ExecPaneSeemsBusy && !r.NoComment {
-					// Store only the actual user input and AI message, not the full structured content
+					// Store the full AI response including XML tags so the AI can see its previous actions
 					aiMsg := ChatMessage{
-						Content:   r.Message,
+						Content:   response, // Store the full response with XML tags
 						FromUser:  false,
 						Timestamp: time.Now(),
 					}
@@ -379,9 +379,9 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 	if len(r.ReadFile) > 0 {
 		// A ReadFile request is synchronous and requires a new turn.
 		if !r.ExecPaneSeemsBusy && !r.NoComment {
-			// Store only the actual user input and AI message, not the full structured content
+			// Store the full AI response including XML tags so the AI can see its previous actions
 			aiMsg := ChatMessage{
-				Content:   r.Message,
+				Content:   response, // Store the full response with XML tags
 				FromUser:  false,
 				Timestamp: time.Now(),
 			}
@@ -475,9 +475,9 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 	// Handle final state changes
 	if r.RequestAccomplished {
 		if !r.ExecPaneSeemsBusy && !r.NoComment {
-			// Store only the actual user input and AI message, not the full structured content
+			// Store the full AI response including XML tags so the AI can see its previous actions
 			aiMsg := ChatMessage{
-				Content:   r.Message,
+				Content:   response, // Store the full response with XML tags
 				FromUser:  false,
 				Timestamp: time.Now(),
 			}
@@ -489,9 +489,9 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 
 	if r.WaitingForUserResponse {
 		if !r.ExecPaneSeemsBusy && !r.NoComment {
-			// Store only the actual user input and AI message, not the full structured content
+			// Store the full AI response including XML tags so the AI can see its previous actions
 			aiMsg := ChatMessage{
-				Content:   r.Message,
+				Content:   response, // Store the full response with XML tags
 				FromUser:  false,
 				Timestamp: time.Now(),
 			}
@@ -516,9 +516,9 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 	if isAsyncAction || r.ExecPaneSeemsBusy {
 		// For async actions, we append history, do a countdown, and then re-process.
 		if !r.ExecPaneSeemsBusy && !r.NoComment {
-			// Store only the actual user input and AI message, not the full structured content
+			// Store the full AI response including XML tags so the AI can see its previous actions
 			aiMsg := ChatMessage{
-				Content:   r.Message,
+				Content:   response, // Store the full response with XML tags
 				FromUser:  false,
 				Timestamp: time.Now(),
 			}
