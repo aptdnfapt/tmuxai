@@ -213,11 +213,11 @@ func (m *Manager) SaveSession() error {
 		}
 	}
 
-	// If no title, generate one
+	// If no title, use pre-generated one or generate a default
 	if title == "" {
-		title, err = m.generateSessionTitle()
-		if err != nil {
-			logger.Error("Failed to generate session title: %v. Using default.", err)
+		if m.SessionTitle != "" {
+			title = m.SessionTitle
+		} else {
 			title = fmt.Sprintf("Session from %s", time.Now().Format("2006-01-02 15:04"))
 		}
 	}
@@ -272,12 +272,16 @@ func (m *Manager) SaveSession() error {
 
 // generateSessionTitle asks the AI to create a title for the conversation.
 func (m *Manager) generateSessionTitle() (string, error) {
-	if len(m.Messages) == 0 {
-		return "Empty Session", nil
+	// Use current messages for title generation
+	messages := m.Messages
+	
+	// If no messages yet, return a default title
+	if len(messages) == 0 {
+		return "New Session", nil
 	}
 
 	var convo strings.Builder
-	for _, msg := range m.Messages {
+	for _, msg := range messages {
 		if msg.FromUser {
 			convo.WriteString("User: " + msg.Content + "\n")
 		} else {

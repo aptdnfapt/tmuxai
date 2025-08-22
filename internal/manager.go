@@ -28,6 +28,7 @@ type Manager struct {
 	PreparedPanes    map[string]bool
 	LastExecPaneID   string
 	SessionPath      string
+	SessionTitle     string // Pre-generated session title to avoid delay on exit
 	isRestore        bool
 	RepoMap          *RepoMapHandler
 	MessageBuilder   *SimplifiedMessageBuilder
