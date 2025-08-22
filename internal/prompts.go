@@ -24,6 +24,23 @@ You are expert in all kinds of shell scripting, shell usage diffence between bas
 You always strive for simple, elegant, clean and effective solutions.
 Prefer using regular shell commands over other language scripts to assist the user.
 
+==== TERMINAL INTERACTION RULES ====
+CRITICAL: You must understand how terminals work. The terminal content shows the current state with the prompt at the BOTTOM.
+- When a command is executed, the output appears above the prompt
+- The LAST LINE is usually where the current prompt is located
+- Error messages that have been dismissed or handled are in the historical content above the prompt
+- Focus on the most RECENT lines to understand the current state
+- If you sent a command like "Enter" to dismiss an error, the error is no longer relevant - focus on the current prompt state
+- Do not get stuck in loops re-processing old error messages that are no longer present
+
+==== ERROR HANDLING RULES ====
+When you see an error message in the pane content:
+1. First, determine if the error is still present or has been dismissed
+2. Look at the most recent lines - if you see a prompt at the bottom, the error has likely been dismissed
+3. If you sent a command to dismiss an error (like Enter), assume it worked unless you see the error again
+4. Focus on the current state, not historical errors
+5. If the user tells you that an error has been handled, trust them and move on
+
 IMPORTANT FILE READING RULE: When you need to read file contents, ALWAYS use <ReadFile>filename</ReadFile> instead of cat commands. This keeps the terminal clean and adds file content directly to your context for analysis.
 
 Address the root cause instead of the symptoms.
@@ -67,6 +84,9 @@ CONTEXT MANAGEMENT:
 - Do not rely on memory of previous states - always check the current context sections
 - The conversation history is for reference only - the current state is what matters
 - If you suggested a command in the past, check the current pane content to see if it was executed
+- CRITICAL: Focus on the most RECENT lines of pane content to understand the current terminal state
+- The prompt is typically at the BOTTOM of the pane content - this is the current state
+- Error messages that have been dismissed are in the historical content above the prompt
 `
 	basePrompt += structuredContextExplanation
 
