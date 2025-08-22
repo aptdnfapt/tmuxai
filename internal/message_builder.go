@@ -94,14 +94,50 @@ func (b *SimplifiedMessageBuilder) buildPaneContent() string {
 		if pane.IsTmuxAiPane {
 			continue
 		}
+		
+		// Refresh pane to get updated information like LastLine and Shell
+		pane.Refresh(b.Manager.GetMaxCaptureLines())
+		
 		paneContent, _ := system.TmuxCapturePane(pane.Id, b.Manager.GetMaxCaptureLines())
 		
-		// Add current command information if available
+		// Build a comprehensive description of the pane
+		paneInfo := fmt.Sprintf("Pane %s", pane.Id)
+		
+		// Add current command information
 		if pane.CurrentCommand != "" {
-			buf.WriteString(fmt.Sprintf("Pane %s (Current command: %s):\n%s\n\n", pane.Id, pane.CurrentCommand, paneContent))
-		} else {
-			buf.WriteString(fmt.Sprintf("Pane %s:\n%s\n\n", pane.Id, paneContent))
+			paneInfo += fmt.Sprintf(" (Command: %s", pane.CurrentCommand)
+			if pane.CurrentCommandArgs != "" {
+				paneInfo += fmt.Sprintf(" %s", pane.CurrentCommandArgs)
+			}
+			paneInfo += ")"
 		}
+		
+		// Add process ID
+		if pane.CurrentPid != 0 {
+			paneInfo += fmt.Sprintf(" [PID: %d]", pane.CurrentPid)
+		}
+		
+		// Add shell information
+		if pane.Shell != "" {
+			paneInfo += fmt.Sprintf(" [Shell: %s]", pane.Shell)
+		}
+		
+		// Add OS information
+		if pane.OS != "" {
+			paneInfo += fmt.Sprintf(" [OS: %s]", pane.OS)
+		}
+		
+		// Add prepared status
+		if pane.IsPrepared {
+			paneInfo += " [Prepared]"
+		}
+		
+		// Add subshell status
+		if pane.IsSubShell {
+			paneInfo += " [SubShell]"
+		}
+		
+		buf.WriteString(fmt.Sprintf("%s:\n%s\n\n", paneInfo, paneContent))
 	}
 	
 	return buf.String()
