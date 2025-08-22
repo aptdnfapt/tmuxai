@@ -95,7 +95,13 @@ func (b *SimplifiedMessageBuilder) buildPaneContent() string {
 			continue
 		}
 		paneContent, _ := system.TmuxCapturePane(pane.Id, b.Manager.GetMaxCaptureLines())
-		buf.WriteString(fmt.Sprintf("Pane %s:\n%s\n\n", pane.Id, paneContent))
+		
+		// Add current command information if available
+		if pane.CurrentCommand != "" {
+			buf.WriteString(fmt.Sprintf("Pane %s (Current command: %s):\n%s\n\n", pane.Id, pane.CurrentCommand, paneContent))
+		} else {
+			buf.WriteString(fmt.Sprintf("Pane %s:\n%s\n\n", pane.Id, paneContent))
+		}
 	}
 	
 	return buf.String()
