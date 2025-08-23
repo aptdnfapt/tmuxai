@@ -39,13 +39,12 @@ func (b *SimplifiedMessageBuilder) BuildMessage(userInput string) string {
 	buf.WriteString(b.buildOldSessionSummary())
 	buf.WriteString("====\n")
 	
-	// Conversation History
-	buf.WriteString(b.buildConversationHistory())
-	buf.WriteString("====\n")
-	
 	// New User Message
 	buf.WriteString(fmt.Sprintf("User: %s\n", userInput))
 	
+	// Add XML tag reminder for AI (not visible to user)
+	buf.WriteString("[Reminder: Please reply with at least one XML tag (e.g., <RequestAccomplished>, <ExecCommand>, etc.) or your message will be considered invalid. This reminder is for the AI only and should not be included in your response to the user.]\n")
+
 	return buf.String()
 }
 
@@ -152,21 +151,6 @@ func (b *SimplifiedMessageBuilder) buildOldSessionSummary() string {
 	if b.Manager.HasPreviousSession() {
 		summary := b.Manager.GetPreviousSessionSummary()
 		buf.WriteString(summary)
-	}
-	
-	return buf.String()
-}
-
-func (b *SimplifiedMessageBuilder) buildConversationHistory() string {
-	var buf bytes.Buffer
-	buf.WriteString("[Conversation History]\n")
-	
-	for _, msg := range b.Manager.Messages {
-		role := "AI"
-		if msg.FromUser {
-			role = "User"
-		}
-		buf.WriteString(fmt.Sprintf("%s: %s\n", role, msg.Content))
 	}
 	
 	return buf.String()

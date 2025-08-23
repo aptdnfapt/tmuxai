@@ -17,3 +17,4 @@ docs/hardcoded-prmpt.human.analysis.md
 # LLM documentation and working files
 .llm/
 
+AGENTS.md

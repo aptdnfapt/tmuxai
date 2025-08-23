@@ -205,20 +205,40 @@ func debugChatMessages(chatMessages []ChatMessage, response string, cfg *config.
 	}
 	defer file.Close()
 
-	// Only include the last message (the current request) and the AI response
-	// This ensures each debug file contains only one API call
+	// Include conversation history and current structured context for better debugging
+	// (Excluding system prompt as it's always the same)
 	if len(chatMessages) > 0 {
-		lastMessage := chatMessages[len(chatMessages)-1]
-		role := "assistant"
-		if lastMessage.FromUser {
-			role = "user"
-		}
-		timeStr := lastMessage.Timestamp.Format(time.RFC3339)
-
 		file.WriteString("==================    SENT REQUEST ==================\n")
-		file.WriteString(fmt.Sprintf("Role: %s\n", role))
-		file.WriteString(fmt.Sprintf("Time: %s\n", timeStr))
-		file.WriteString(fmt.Sprintf("Content:\n%s\n\n", lastMessage.Content))
+		
+		// Second Block: Conversation History (excluding system prompt)
+		if len(chatMessages) > 1 {
+			file.WriteString("\n-------------------- SECOND BLOCK: CONVERSATION HISTORY --------------------\n")
+			startIdx := 1
+			// Skip system prompt if it's the first message
+			if !chatMessages[0].FromUser {
+				startIdx = 1
+			} else {
+				startIdx = 0
+			}
+			
+			for i := startIdx; i < len(chatMessages)-1; i++ {
+				msg := chatMessages[i]
+				role := "assistant"
+				if msg.FromUser {
+					role = "user"
+				}
+				timeStr := msg.Timestamp.Format(time.RFC3339)
+				file.WriteString(fmt.Sprintf("\nMessage %d (%s) at %s:\n%s\n", i, role, timeStr, msg.Content))
+			}
+		}
+		
+		// Third Block: Current Structured Context
+		if len(chatMessages) > 1 {
+			file.WriteString("\n-------------------- THIRD BLOCK: CURRENT STRUCTURED CONTEXT --------------------\n")
+			msg := chatMessages[len(chatMessages)-1]
+			timeStr := msg.Timestamp.Format(time.RFC3339)
+			file.WriteString(fmt.Sprintf("\nRole: user at %s\nContent:\n%s\n", timeStr, msg.Content))
+		}
 	}
 
 	file.WriteString("==================    RECEIVED RESPONSE ==================\n\n")
