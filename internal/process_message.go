@@ -106,19 +106,6 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 		return false
 	}
 
-	// Generate session title after first successful AI response to avoid delay on exit
-	if m.SessionTitle == "" && len(m.Messages) == 0 {
-		go func() {
-			title, err := m.generateSessionTitle()
-			if err != nil {
-				logger.Error("Failed to generate session title: %v. Using default.", err)
-				m.SessionTitle = fmt.Sprintf("Session from %s", time.Now().Format("2006-01-02 15:04"))
-			} else {
-				m.SessionTitle = title
-			}
-			logger.Info("Session title generated: %s", m.SessionTitle)
-		}()
-	}
 
 	// check for status change again
 	if m.Status == "" {
@@ -168,6 +155,21 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 			Timestamp: time.Now(),
 		}
 		m.Messages = append(m.Messages, historyUserMessage, aiMsg)
+
+		// Generate session title after first successful message exchange to avoid delay on exit
+		if m.SessionTitle == "" {
+			go func() {
+				title, err := m.generateSessionTitle()
+				if err != nil {
+					logger.Error("Failed to generate session title: %v. Using default.", err)
+					m.SessionTitle = fmt.Sprintf("Session from %s", time.Now().Format("2006-01-02 15:04"))
+				} else {
+					m.SessionTitle = title
+				}
+				logger.Info("Session title generated: %s", m.SessionTitle)
+			}()
+		}
+
 		return m.ProcessUserMessage(ctx, guidelineError)
 
 	}
@@ -496,6 +498,20 @@ func (m *Manager) ProcessUserMessage(ctx context.Context, message string) bool {
 				Timestamp: time.Now(),
 			}
 			m.Messages = append(m.Messages, historyUserMessage, aiMsg)
+
+			// Generate session title after first successful message exchange to avoid delay on exit
+			if m.SessionTitle == "" {
+				go func() {
+					title, err := m.generateSessionTitle()
+					if err != nil {
+						logger.Error("Failed to generate session title: %v. Using default.", err)
+						m.SessionTitle = fmt.Sprintf("Session from %s", time.Now().Format("2006-01-02 15:04"))
+					} else {
+						m.SessionTitle = title
+					}
+					logger.Info("Session title generated: %s", m.SessionTitle)
+				}()
+			}
 		}
 		m.Status = ""
 		return true
